@@ -1,7 +1,7 @@
 # Continue AI Configuration - Professional Local LLM Setup
 
-**Version**: 4.3.0  
-**Last Updated**: 2026-02-04
+**Version**: 4.4.0  
+**Last Updated**: 2026-02-05
 
 Lokal olarak çalışan LLM'leri (GLM-4.7, Qwen3) GitHub Copilot seviyesinde kod üretimi, debugging, refactoring ve dokümantasyon için optimize eden Continue IDE eklentisi yapılandırması.
 
@@ -138,16 +138,31 @@ continue-main/
 | Apply-Model | 0.0 | Deterministik birleştirme |
 | Rerank | 0.1 | Tutarlı sıralama |
 
-### vLLM Extra Parametreleri (Loop Önleme)
+### vLLM Extra Parametreleri (Loop Önleme + Atomik Çıktı)
 
 | Parametre | Değer | Açıklama |
 |-----------|-------|----------|
-| `repetition_penalty` | 1.0 | KAPALI - GLM loop önleme için zorunlu |
-| `min_p` | 0.01 | Düşük eşik = çeşitlilik |
+| `repetition_penalty` | 1.1 | Hafif tekrar cezası |
 | `top_k` | 20 | Stabil çıktı |
-| `frequency_penalty` | 0.0 | Kod için sıfır |
-| `presence_penalty` | 0.0 | Kod için sıfır |
+| `frequency_penalty` | 0.2 | Tekrar eden token'ları cezalandır |
+| `presence_penalty` | 0.1 | Yeni token çeşitliliği |
 | `top_p` | 1.0 | Tüm tokenler dahil |
+| `truncate_prompt_tokens` | 98000 | Context overflow önleme (131K - 32K = 99K) |
+
+> **Not:** `min_p` parametresi API tarafından desteklenmediği için kaldırıldı.
+
+### Token Limitleri
+
+| Parametre | Değer | Açıklama |
+|-----------|-------|----------|
+| `contextLength` | 131072 | GLM-4.7 maksimum context |
+| `maxTokens` | 32768 | Çıktı limiti (32K) |
+| `truncate_prompt_tokens` | 98000 | Input 98K'yı aşarsa eski mesajları kes |
+
+> **✅ Context Overflow Koruması Aktif:**
+> - `truncate_prompt_tokens: 98000` ile input otomatik kesilir
+> - 98K input + 32K output = 130K < 131K context limit
+> - Session düşmesi önlenir, çok uzun konuşmalarda bile çalışır
 
 ### Timeout Ayarları
 
@@ -182,20 +197,32 @@ continue-main/
 **Çözüm (vLLM Backend için):**
 ```yaml
 kodlama_extra: &kodlama_extra
-  repetition_penalty: 1.0   # KAPALI - #1 loop sebebi
-  min_p: 0.01               # Düşük eşik
+  repetition_penalty: 1.1   # Hafif tekrar cezası
   top_k: 20                 # Stabil çıktı
-  frequency_penalty: 0.0
-  presence_penalty: 0.0
+  frequency_penalty: 0.2    # Tekrar eden token cezası
+  presence_penalty: 0.1     # Yeni token çeşitliliği
   top_p: 1.0
+  # min_p kaldırıldı - API desteklemiyor
 ```
 
 **Prompt Kuralları:**
 ```
 THINKING KURALLARI (LOOP ONLEME):
-- Ayni fikri TEKRAR ETME - bir kez soyle, sonuca gec
+- Ayni fikri TEKRAR ETMA - bir kez soyle, sonuca gec
 - Dolgu kelimeleri KULLANMA (Hmm, Let me think, Wait, I see)
 - Cikmazda kalirsan DURDUR ve kullaniciya sor
+```
+
+**Atomik Çıktı Kuralları (Incremental Edit Önleme):**
+```
+| YASAKLI İFADE | AÇIKLAMA |
+|---------------|----------|
+| "Şimdi" | Adım adım tetikleyici |
+| "Now let's" | Step-by-step trigger |
+| "Ardından" | Sequential trigger |
+| "Additionally" | Incremental trigger |
+
+Tek Yanıt Kuralı: Sonraki mesaj YOK. Tüm değişiklikler TEK yanıtta.
 ```
 
 ---
@@ -257,6 +284,20 @@ Kullanıcı kopyalayıp dosyaya yapıştırıyor. Bu yöntem daha güvenilir.
 ---
 
 ## 📋 Versiyon Geçmişi
+
+### v4.4.0 (2026-02-05)
+- **Atomik Çıktı Protokolü** eklendi (incremental edit önleme)
+  - Yasaklı ifadeler: "Şimdi", "Now let's", "Ardından", "Additionally"
+  - Tek Yanıt Kuralı: Tüm değişiklikler tek yanıtta
+  - Stop tokens: `["Simdi", "Now let", "Ardindan", "Additionally"]`
+- **Parametre Güncellemesi**
+  - `repetition_penalty`: 1.0 → 1.1 (hafif tekrar cezası)
+  - `presence_penalty`: 0.0 → 0.1 (yeni token çeşitliliği)
+  - `frequency_penalty`: 0.0 → 0.2 (tekrar eden token cezası)
+  - `min_p` kaldırıldı (API desteklemiyor)
+- **00-core.md** Section 7B "Atomik Çıktı Zorunluluğu" eklendi
+- **07-reasoning.md** sampling parametreleri güncellendi
+- **config.yaml** tüm model system message'larına atomik çıktı kuralları eklendi
 
 ### v4.3.0 (2026-02-04)
 - `kodlama_params` kaldırıldı (kullanılmıyordu, kafa karıştırıyordu)
