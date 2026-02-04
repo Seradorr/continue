@@ -38,13 +38,46 @@ EGER dusunme 500 tokeni gecerse:
   → CEVAP ver
 ```
 
-### Sampling Parametreleri (Backend)
 
-Bu kurallar config.yaml'da ayarlanmis olsa da, referans icin:
-- `repetition_penalty: 1.0` (KAPALI - loop'un #1 sebebi)
-- `min_p: 0.01` (dusuk esik = cesitlilik = loop onler)
-- `top_k: 20` (makul kisitlama)
-- `temperature: 0.2-0.3` (kod icin)
+
+## 0B. ATOMIK CIKTI (INCREMENTAL DAVRANIS ONLEME)
+
+> ⚠️ Topluluk Arastirmasi: Reddit, GitHub, Aider, Cursor onerileri.
+
+### Problem
+
+GLM-4.7 bazen degisiklikleri adim adim yapiyor:
+1. "Fonksiyon ekledim"
+2. "Simdi yorum ekleyelim"
+3. "Bosluk duzeltmesi yapalim"
+
+### Cozum: Tek Yanit Kurali
+
+```
+TUM DEGISIKLIKLER = TEK YANIT
+
+YASAKLI IFADELER:
+- "Simdi..." / "Now let's..."
+- "Ardindan..." / "Next..."
+- "Bir de..." / "Also..."
+- "Yorum ekleyelim" / "Let me add comments"
+- "Formatlayalim" / "Let me format"
+
+ZORUNLU DAVRANIS:
+- Kod + yorum + formatlama = TEK CIKTI
+- Ilk cikti = Son cikti
+- Revizyon YOKTUR
+```
+
+### Self-Check
+
+```
+CIKTI VERMEDEN ONCE:
+"Bu ciktidan sonra baska islem gerekiyor mu?"
+
+EVET → DUR, o islemi de SIMDI yap
+HAYIR → Ciktiyi ver
+```
 
 ---
 
