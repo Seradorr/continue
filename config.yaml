@@ -1,7 +1,7 @@
-﻿%YAML 1.1
+%YAML 1.1
 ---
 name: Custom-AI-Assistant
-version: 4.3.0
+version: 4.4.0
 schema: v1
 
 # ============================================================================
@@ -14,19 +14,21 @@ api_config: &api_config
   apiKey: key
 
 # ============================================================================
-# GLM-4.7 LOOP PREVENTION PARAMETERS (Reddit + Unsloth + Z.ai Research)
+# GLM-4.7 LOOP + INCREMENTAL PREVENTION (Reddit + Unsloth + Z.ai + Aider)
 # ============================================================================
-# KRITIK BULGULAR:
-# 1. REPEAT PENALTY = 1.0 (KAPALI) - GLM için #1 loop sebebi
-# 2. min_p = 0.01 (default 0.05 loop yapıyor)
-# 3. Temperature: kod için 0.2-0.3, genel için 0.7-1.0
-# 4. top_p: kod için 1.0, genel için 0.95
-# 5. maxTokens: 32K - loop önleme ile büyük dosya dengesi
+# KRITIK BULGULAR (v4.4.0 - 2026-02-04):
+# 1. REPEAT PENALTY = 1.1 (AKTİF) - loop önlemede topluluk standardı
+# 2. frequency_penalty = 0.2 - incremental davranışı azaltır
+# 3. presence_penalty = 0.1 - çeşitlilik sağlar
+# 4. Temperature: kod için 0.3, genel için 0.5-0.7
+# 5. maxTokens: 32K - büyük dosya kapasitesi (~3000 satır)
+# 6. ATOMIC OUTPUT: Tüm değişiklikler TEK yanıtta
+# 7. Context overflow: 131K'ya yaklaşınca "Clear Chat" kullan
 # ============================================================================
 
 glm_params: &glm_params
-  temperature: 0.3             # Kod için düşük ama sıfır değil - 0.2-0.3 arası loop önler
-  maxTokens: 32768             # 32K - loop önleme + büyük dosya dengesi (~3000 satır)
+  temperature: 0.4             # Kod için düşük ama sıfır değil - 0.2-0.3 arası loop önler
+  maxTokens: 32768             # 32K - büyük dosya kapasitesi (~3000 satır)
   contextLength: 131072
 
 apply_params: &apply_params
@@ -40,20 +42,25 @@ rerank_params: &rerank_params
   contextLength: 131072
 
 # ==========================================================================
-# GLM-4.7 LOOP-FREE EXTRA PARAMETERS (vLLM Backend)
+# GLM-4.7 LOOP-FREE + ATOMIC OUTPUT PARAMETERS (vLLM Backend)
 # ==========================================================================
-# vLLM OpenAI-Uyumlu API - Ek sampling parametreleri DESTEKLENİYOR
+# Topluluk Araştırması: Reddit, GitHub, Aider, Cursor önerileri
+# - repetition_penalty: 1.1 (loop önleme için kritik)
+# - frequency_penalty: 0.2 (incremental davranışı azaltır)
+# - presence_penalty: 0.1 (çeşitlilik sağlar)
 # ==========================================================================
 kodlama_extra: &kodlama_extra
-  # Standart OpenAI Parametreleri:
-  frequency_penalty: 0.0       # Kod için SIFIR - syntax bozulmasın
-  presence_penalty: 0.0        # Kod için SIFIR
+  # Standart OpenAI Parametreleri (loop + incremental önleme):
+  frequency_penalty: 0.2       # Sık tokenlere hafif ceza - incremental davranışı azaltır
+  presence_penalty: 0.1        # Yeni token teşviki - çeşitlilik
   top_p: 1.0                   # Tüm tokenler dahil
   
   # vLLM Ek Parametreleri (loop önleme için KRİTİK):
-  repetition_penalty: 1.0      # 1.0 = KAPALI - GLM loop önleme için zorunlu
-  min_p: 0.01                  # Düşük eşik = daha fazla çeşitlilik = loop önler
+  repetition_penalty: 1.1      # 1.1 = AKTİF - GLM loop önleme için topluluk önerisi
   top_k: 20                    # Makul kısıtlama = stabil çıktı
+  
+  # Context Overflow Önleme (vLLM):
+  truncate_prompt_tokens: 98000   # Input 98K'dan büyükse eski mesajları kes (131K - 32K = 99K)
 
 
 
@@ -88,6 +95,12 @@ models:
         - Ayni fikri TEKRAR ETME - bir kez soyle, sonuca gec
         - Dolgu kelimeleri KULLANMA (Hmm, Let me think, Wait, I see)
         - Cikmazda kalirsan DURDUR ve kullaniciya sor
+        
+        ATOMIK CIKTI KURALI (KRITIK):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - ASLA "Simdi...", "Ardindan...", "Bir de..." KULLANMA
+        - Ilk ciktin = Son ciktin, revizyon YOK
+        - Kod, yorum, formatlama HEPSINI tek seferde yap
       baseAgentSystemMessage: |
         # OPERASYONLAR
 
@@ -153,6 +166,11 @@ models:
         - Dolgu kelimeleri KULLANMA (Hmm, Let me think, Wait, I see)
         - Cikmazda kalirsan DURDUR ve kullaniciya sor
         
+        ATOMIK CIKTI KURALI (KRITIK):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - ASLA "Simdi...", "Ardindan...", "Bir de..." KULLANMA
+        - Ilk ciktin = Son ciktin, revizyon YOK
+        
         ODAK ALANLARI:
         - VHDL/Verilog dil yapisi: process, always, generate, generic/parameter
         - FSM tasarimi: Moore/Mealy, state encoding (one-hot, binary, gray), next-state logic
@@ -173,6 +191,11 @@ models:
         GOREV: FPGA RTL analiz, debug ve refactor.
         
         THINKING LIMITI: Maksimum 500 token dusun, sonra CEVAP VER.
+        
+        ATOMIK CIKTI (ZORUNLU):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - "Simdi", "Ardindan", "Bir de" YASAK
+        - Sonraki mesaj YOK - ilk ciktin son ciktin
         
         PROTOKOL:
         - Sadece RTL kodu istenirse sadece RTL ver
@@ -203,6 +226,11 @@ models:
         - Dolgu kelimeleri KULLANMA (Hmm, Let me think, Wait, I see)
         - Cikmazda kalirsan DURDUR ve kullaniciya sor
         
+        ATOMIK CIKTI KURALI (KRITIK):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - ASLA "Simdi...", "Ardindan...", "Bir de..." KULLANMA
+        - Ilk ciktin = Son ciktin, revizyon YOK
+        
         ODAK ALANLARI:
         - Temiz, okunabilir ve parametrik C kodu yazimi
         - Struct yapilari, typedef, enum kullanimi
@@ -223,6 +251,11 @@ models:
         - Turkce aciklama, Ingilizce teknik terimler (ISR, DMA, GPIO, BSP, API)
       baseAgentSystemMessage: |
         GOREV: Embedded C/C++ analiz, debug ve refactor.
+        
+        ATOMIK CIKTI (ZORUNLU):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - "Simdi", "Ardindan", "Bir de" YASAK
+        - Sonraki mesaj YOK - ilk ciktin son ciktin
         
         PROTOKOL:
         - Kritik dosyalarda onay iste (lscript.ld, FSBL, ISR)
@@ -252,6 +285,11 @@ models:
         - Dolgu kelimeleri KULLANMA (Hmm, Let me think, Wait, I see)
         - Cikmazda kalirsan DURDUR ve kullaniciya sor
         
+        ATOMIK CIKTI KURALI (KRITIK):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - ASLA "Simdi...", "Ardindan...", "Bir de..." KULLANMA
+        - Ilk ciktin = Son ciktin, revizyon YOK
+        
         ODAK ALANLARI:
         - Modern C# syntax: pattern matching, records, nullable reference types, LINQ
         - Async/await: ConfigureAwait, Task vs ValueTask, cancellation token kullanimi
@@ -277,6 +315,11 @@ models:
         - Turkce aciklama, Ingilizce teknik terimler
       baseAgentSystemMessage: |
         GOREV: C#/.NET analiz, debug ve refactor.
+        
+        ATOMIK CIKTI (ZORUNLU):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - "Simdi", "Ardindan", "Bir de" YASAK
+        - Sonraki mesaj YOK - ilk ciktin son ciktin
         
         PROTOKOL:
         - Exception stack trace ile debug
@@ -306,6 +349,11 @@ models:
         - Dolgu kelimeleri KULLANMA (Hmm, Let me think, Wait, I see)
         - Cikmazda kalirsan DURDUR ve kullaniciya sor
         
+        ATOMIK CIKTI KURALI (KRITIK):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - ASLA "Simdi...", "Ardindan...", "Bir de..." KULLANMA
+        - Ilk ciktin = Son ciktin, revizyon YOK
+        
         ODAK ALANLARI:
         - Temiz, okunabilir ve Pythonic kod yazimi
         - Type hints ve typing modulu kullanimi
@@ -325,6 +373,11 @@ models:
         - Turkce aciklama, Ingilizce teknik terimler
       baseAgentSystemMessage: |
         GOREV: Python analiz, debug ve refactor.
+        
+        ATOMIK CIKTI (ZORUNLU):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - "Simdi", "Ardindan", "Bir de" YASAK
+        - Sonraki mesaj YOK - ilk ciktin son ciktin
         
         PROTOKOL:
         - Traceback ile debug
@@ -353,6 +406,11 @@ models:
         - Dolgu kelimeleri KULLANMA (Hmm, Let me think, Wait, I see)
         - Cikmazda kalirsan DURDUR ve kullaniciya sor
         
+        ATOMIK CIKTI KURALI (KRITIK):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - ASLA "Simdi...", "Ardindan...", "Bir de..." KULLANMA
+        - Ilk ciktin = Son ciktin, revizyon YOK
+        
         AMAC: Dokumantasyon dosyalari icin icerik olustur ve duzenle.
         
         ILETISIM:
@@ -371,6 +429,11 @@ models:
         Bu format kullanicinin VS Code'da guzel goruntulemesini saglar.
       baseAgentSystemMessage: |
         GOREV: Dokumantasyon olustur veya guncelle.
+        
+        ATOMIK CIKTI (ZORUNLU):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - "Simdi", "Ardindan", "Bir de" YASAK
+        - Sonraki mesaj YOK - ilk ciktin son ciktin
         
         === KULLANABILDIGIN TOOL'LAR ===
         - read_file: Dosya oku
@@ -520,6 +583,12 @@ models:
         - Dolgu kelimeleri KULLANMA (Hmm, Let me think, Wait, I see)
         - Cikmazda kalirsan DURDUR ve kullaniciya sor
         
+        ATOMIK CIKTI KURALI (KRITIK):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - ASLA "Simdi...", "Ardindan...", "Bir de..." KULLANMA
+        - Ilk ciktin = Son ciktin, revizyon YOK
+        - Kod, yorum, formatlama HEPSINI tek seferde yap
+        
         GOREV: Kod olustur, duzenle veya analiz et.
         
         KURALLAR:
@@ -528,6 +597,11 @@ models:
         - Indentation'a dikkat et
       baseAgentSystemMessage: |
         GOREV: Kod olustur, analiz et veya degistir.
+        
+        ATOMIK CIKTI (ZORUNLU):
+        - TUM degisiklikleri TEK YANIT'ta tamamla
+        - "Simdi", "Ardindan", "Bir de" YASAK
+        - Sonraki mesaj YOK - ilk ciktin son ciktin
         
         === KULLANABILDIGIN TOOL'LAR ===
         - read_file: Dosya oku
