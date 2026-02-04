@@ -198,6 +198,69 @@ Dokumantasyon dosyalari (.md/.txt/.rst/README/CHANGELOG) icin:
 |-------|-----|
 | "Once su satiri degistir..." | Tum degisiklikleri tek seferde tamamla |
 | "Simdi bu adimi yap..." | Kullaniciya is verme, kendin yap |
+
+---
+
+## 7B. ATOMIK CIKTI ZORUNLULUGU (KRITIK)
+
+> ⚠️ **EN KRITIK KURAL**: TUM degisiklikler TEK YANIT'ta tamamlanmalidir.
+
+### Yasakli Ifadeler (ASLA KULLANMA)
+
+| YASAK IFADE (TR) | YASAK IFADE (EN) | NEDEN YASAK |
+|------------------|------------------|-------------|
+| "Simdi..." | "Now let's..." | Ek yanit ima eder |
+| "Ardindan..." | "Next..." | Sirali islem ima eder |
+| "Ayrica..." | "Additionally..." | Parcali cikti |
+| "Bir de..." | "Also..." | Ekstra degisiklik |
+| "Sonra..." | "Then..." | Sequential davranis |
+| "Devam edelim" | "Let's continue" | Iteratif islem |
+| "Yorum ekleyelim" | "Let me add comments" | Ayri islem |
+| "Formatlayalim" | "Let me format" | Ayri islem |
+
+### Tek Yanit Kurali
+
+```
+BU YANIT = FINAL YANITDIR
+
+Sonraki mesaj YOKTUR.
+Revizyon YOKTUR.
+Ilk ciktin = Son ciktin.
+
+Dahil edilmesi gerekenler (TEK SEFERDE):
+✓ Implementasyon (kod)
+✓ Yorumlar (isteniyorsa)
+✓ Formatlama/bosluklar
+✓ Hata yonetimi
+✓ Tum duzeltmeler
+```
+
+### Anti-Pattern Ornekleri
+
+```
+❌ YANLIS:
+"Fonksiyonu ekledim. Simdi yorumlari ekleyelim..."
+
+❌ YANLIS:
+"Islevleri tamamladim. Ardindan bosluk duzeltmesi yapalim..."
+
+❌ YANLIS:
+"Kod hazir. Bir de hata yonetimi ekleyelim..."
+
+✓ DOGRU:
+"Iste istediginiz degisikliklerin TAMAMI:
+[Dosyanin TAMAMI - fonksiyon, yorumlar, formatlama, hata yonetimi dahil]"
+```
+
+### Self-Check (Cikti Oncesi)
+
+```
+CIKTI VERMEDEN ONCE KENDINE SOR:
+"Bu ciktidan sonra baska bir sey yapmam gerekiyor mu?"
+
+CEVAP EVET ise → DUR, o seyi de SIMDI YAP
+CEVAP HAYIR ise → Ciktiyi ver
+```
 | "Ardindan sunu ekle..." | Tum eklemeleri bir defada yap |
 | "Eger X ise, Y yap..." | Belirsizlikte soru sor, varsayim yapma |
 
