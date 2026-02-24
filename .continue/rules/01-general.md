@@ -22,9 +22,26 @@ Bu kurallar **TUM modellere** ve **TUM dosya tiplerine** uygulanir.
 | Tool adini gizle | Kullaniciya tool adi gosterme |
 | Dosyaya uygula | Degisikligi chat'e yazma, dosyaya uygula |
 | Sonucu bekle | Tool sonucu gelmeden analiz yazma |
-| Hatayi yonet | Tool basarisiz olursa sessizce yeniden dene |
+| Hatayi yonet | Tool basarisiz olursa alternatif dene |
 
-### Ornek: YANLIS vs DOGRU
+### Tool Secim Rehberi
+
+Yeni dosya icin create_new_file kullan.
+Buyuk dosyalarda once grep_search ile hedef bolgeyi daralt, sonra hedefli okuma yap.
+
+```
+DOSYA ISLEMLERI:
+- read_file               -> Mevcut dosyayi oku
+- grep_search             -> Kod ara / pattern bul
+- create_new_file         -> Yeni dosya olustur
+- repo-map                -> Proje yapisini gor
+
+TERMINAL:
+- run_terminal_command -> Build, test, format calistir
+- git diff             -> Degisiklikleri gor
+```
+
+### YANLIS vs DOGRU
 
 ```
 YANLIS: "Simdi dosyayi okuyacagim..."
@@ -39,7 +56,14 @@ DOGRU: (Dosyayi duzenle, degisikligi acikla)
 
 ---
 
-## 1B. DEGISIKLIK FORMATI (APPLY UYUMLU)
+### Hizli Context Toplama
+
+1. Once `grep_search` ile hedef bolgeyi bul
+2. Sonra sadece ilgili dosyalari `read_file` ile oku
+3. Ilgisiz buyuk dosyalari context'e tasima
+4. Ayni dosyayi tekrar tekrar okumadan son okuma sonucunu kullan
+
+## 2. DEGISIKLIK FORMATI
 
 Degisiklikleri net ve islenebilir formatta ver:
 
@@ -48,16 +72,9 @@ Degisiklikleri net ve islenebilir formatta ver:
 - Silme icin [DELETE] / [REMOVE] / [SIL] kullan ve silinecek satirlari AYNEN yaz
 - Silme belirsizse DUR, soru sor
 
-Ornek:
-```
-[DELETE]
-<silinecek satirlarin tamami>
-[/DELETE]
-```
+---
 
-## 2. SKEPTIKLIK VE KANIT
-
-### Kurallar
+## 3. SKEPTIKLIK VE KANIT
 
 - **Kanit olmadan iddia yok** - Kok neden analizi icin log/trace gerekli
 - **Varsayim yapma** - Eksik bilgi varsa iste
@@ -75,68 +92,46 @@ Ornek:
 
 ---
 
-## 3. DEBUGGING AKISI
-
-Bir sorun bildirildiginde su siralamayi takip et:
+## 4. DEBUGGING AKISI
 
 ```
-1. BELIRTI → Ne oluyor? Ne bekleniyor?
-     ↓
-2. TEKRAR → Nasil tekrarlanir?
-     ↓
-3. ORTAM → Surum, platform, bagimliliklar
-     ↓
-4. KANIT → Log, stack trace, ekran goruntusu
-     ↓
-5. ANALIZ → Kanita dayali kok neden
-     ↓
-6. COZUM → Minimal degisiklikle fix
-     ↓
-7. DOGRULAMA → Test adimlari
+1. BELIRTI -> Ne oluyor? Ne bekleniyor?
+2. TEKRAR -> Nasil tekrarlanir?
+3. ORTAM -> Surum, platform, bagimliliklar
+4. KANIT -> Log, stack trace, ekran goruntusu
+5. ANALIZ -> Kanita dayali kok neden
+6. COZUM -> Minimal degisiklikle fix
+7. DOGRULAMA -> Test adimlari
 ```
-
----
-
-## 4. ILETISIM KURALLARI
-
-### Dil
-
-- **Aciklamalar**: TURKCE
-- **Teknik terimler**: Ingilizce kalabilir (ISR, DMA, MVVM, async, FSM)
-- **Kod yorumlari**: Kullanici tercihine uy
-
-### Format
-
-- Onemli bilgiyi one cikar
-- Uzun aciklamalar yerine liste/tablo kullan
-- Kod orneklerini minimal ve odakli tut
 
 ---
 
 ## 5. MODEL SECIMI REHBERI
 
-| ALAN | MODEL |
-|------|-------|
-| FPGA/VHDL/Verilog | FPGA-RTL-Engineer |
-| Vitis/Embedded C/C++ | Embedded-C-Cpp-Vitis |
-| C#/.NET/WPF | CSharp-DotNet-Engineer |
-| Python | Python-Engineer |
-| Dokumantasyon | Docs-Writer |
-| Mimari/Strateji | Advisor |
-| Genel/Cok dosya | General-Engineer |
+| ALAN | GLM MODEL | KIMI MODEL | NOT |
+|------|-----------|------------|-----|
+| FPGA/VHDL/Verilog | FPGA-RTL-Engineer | K2-FPGA-Engineer | Agent modu |
+| Vitis/Embedded C/C++ | Embedded-C-Cpp-Vitis | K2-Embedded | Agent modu |
+| C#/.NET/WPF | CSharp-DotNet-Engineer | K2-CSharp | Agent modu |
+| Python | Python-Engineer | K2-Python | Agent modu |
+| Dokumantasyon | - | K2-Docs | Agent modu |
+| Sematik/Gorsel | - | Schematic-Engineer | image_input destekli |
+| Git/Versiyon Kontrol | - | Git-Expert | Agent modu |
+| Hizli Temel Isler | - | - | Quick-Engineer (Qwen3, 3B aktif) |
 
-Mevcut model uygun degilse, model degistirmeyi oner.
-
-Dokumantasyon islerinde:
-- Docs-Writer kullan
-- Apply kullanma
-- TAM DOSYA cikti ver
+Model secim rehberi:
+- Buyuk context gerekiyorsa (5K+ satir proje) → K2 modelleri (128K context)
+- Hizli basit isler → Quick-Engineer
+- Standart kodlama → GLM-5 modelleri (131K context)
+- Dokumantasyon → K2-Docs
+- Devre semasi / gorsel analiz → Schematic-Engineer
+- Git islemleri / versiyon takibi → Git-Expert
 
 ---
 
 ## 6. KRITIK DOSYA UYARISI
 
-Asagidaki dosya tiplerinde degisiklik yapmadan once **ONAY ISTE**:
+Bu dosya tiplerinde degisiklik yapmadan once **ONAY ISTE**:
 
 | ALAN | KRITIK DOSYALAR |
 |------|-----------------|

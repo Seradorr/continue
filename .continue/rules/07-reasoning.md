@@ -1,83 +1,14 @@
 ---
 name: Advanced Reasoning Protocol
 description: |
-  Gelismis dusunme, analiz ve karar verme protokolleri.
-  GLM-4.7 ve Kimi K2.5 icin loop onleme kurallari dahil.
+  Gelismis dusunme, analiz, karar verme ve tool secim protokolleri.
+  GLM-5 ve Kimi-K2.5 icin loop onleme, kalite kontrol ve cikti dogrulama.
 alwaysApply: true
 ---
 
 # GELISMIS AKIL YURUTME PROTOKOLU
 
 Bu kurallar daha kaliteli ve tutarli cikti icin uygulanir.
-
----
-
-## 0. LOOP ONLEME (GLM-4.7 / Kimi K2.5 ICIN KRITIK)
-
-> ⚠️ Reddit, GitHub ve Unsloth topluluk arastirmasindan elde edilen kurallar.
-
-### Thinking (Dusunme) Limitleri
-
-| KURAL | ACIKLAMA |
-|-------|----------|
-| Maksimum 3 adim | Dusunme surecinde 3 adimdan fazla KULLANMA |
-| Tekrar YASAK | Ayni fikri ikinci kez yaziyorsan → HEMEN dur |
-| Dolgu kelimesi YASAK | "Hmm", "Let me think", "Wait", "好的" KULLANMA |
-| 500 token limiti | Dusunme 500 tokeni gecerse → CEVAP VER |
-
-### Loop Tespit ve Mudahale
-
-```
-EGER ayni cumle/fikir 2. kez yaziliyorsa:
-  → HEMEN dur
-  → Mevcut bilgiyle CEVAP ver
-  → Eksik kalsa bile devam ETME
-
-EGER dusunme 500 tokeni gecerse:
-  → "Yeterli analiz yapildi" de
-  → CEVAP ver
-```
-
-
-
-## 0B. ATOMIK CIKTI (INCREMENTAL DAVRANIS ONLEME)
-
-> ⚠️ Topluluk Arastirmasi: Reddit, GitHub, Aider, Cursor onerileri.
-
-### Problem
-
-GLM-4.7 bazen degisiklikleri adim adim yapiyor:
-1. "Fonksiyon ekledim"
-2. "Simdi yorum ekleyelim"
-3. "Bosluk duzeltmesi yapalim"
-
-### Cozum: Tek Yanit Kurali
-
-```
-TUM DEGISIKLIKLER = TEK YANIT
-
-YASAKLI IFADELER:
-- "Simdi..." / "Now let's..."
-- "Ardindan..." / "Next..."
-- "Bir de..." / "Also..."
-- "Yorum ekleyelim" / "Let me add comments"
-- "Formatlayalim" / "Let me format"
-
-ZORUNLU DAVRANIS:
-- Kod + yorum + formatlama = TEK CIKTI
-- Ilk cikti = Son cikti
-- Revizyon YOKTUR
-```
-
-### Self-Check
-
-```
-CIKTI VERMEDEN ONCE:
-"Bu ciktidan sonra baska islem gerekiyor mu?"
-
-EVET → DUR, o islemi de SIMDI yap
-HAYIR → Ciktiyi ver
-```
 
 ---
 
@@ -106,55 +37,68 @@ Her kullanici isteginde once su analizi yap:
 
 ## 2. KARAR AGACI
 
+### Tool Secimi
+
+Yeni dosya icin create_new_file kullan.
+
+```
+Degisiklik yapilacak mi?
+|- EVET -> Dosya var mi?
+|  |- EVET -> Dosyayi oku
+|  |  -> Uygun edit tool ile degisikligi uygula
+|  |  -> Birden fazla bagimsiz degisiklik: ayri cagrilar (gerekirse paralel)
+|  '- HAYIR -> create_new_file (yeni dosya)
+'- HAYIR -> Analiz/aciklama ver (tool gerekmiyor)
+```
+
 ### Yeni Dosya mi Degisiklik mi?
 
 ```
 Istek icinde mevcut dosya referansi var mi?
-├─ EVET → Dosyayi OKU, TAM DOSYA olarak yeniden YAZ
-└─ HAYIR → Yeni dosya OLUSTUR
+|- EVET -> Dosyayi OKU, uygun tool ile degistir
+'- HAYIR -> Yeni dosya OLUSTUR
 ```
 
 ### Testbench/Test Dahil mi?
 
 ```
 Istekte "testbench", "tb", "test", "simulasyon" gecti mi?
-├─ EVET → AYRI DOSYA olarak olustur
-└─ HAYIR → EKLEME, sadece ana kodu ver
+|- EVET -> AYRI DOSYA olarak olustur
+'- HAYIR -> EKLEME
 ```
 
 ### Dokumantasyon mu Kod mu?
 
 ```
 Hedef dosya .md, .rst, .txt mi?
-├─ EVET → KORUMA modunda calis (silme yok)
-└─ HAYIR → Normal kod modunda calis
+|- EVET -> KORUMA modunda calis, markdown code block ciktisi
+'- HAYIR -> Normal kod modunda calis
 ```
 
 ---
 
 ## 3. CIKTI ONCESI KONTROL LISTESI
 
-Cikti vermeden once su kontrolleri yap:
-
 ### Kod Ciktisi
 
 - [ ] Dosya adi acikca belirtildi mi?
-- [ ] Kod TAMAM mi (bastan sona)?
-- [ ] Kisaltma (`...`, `existing code`) var mi? → YASAK
-- [ ] Syntax hatalari var mi? → DUZELT
-- [ ] Istenmeyen icerik (tb, test, ornek) eklendi mi? → CIKAR
+- [ ] Kod TAMAM mi (bastan sona veya hedefli degisiklik)?
+- [ ] Kisaltma (`...`, `existing code`) var mi? -> YASAK
+- [ ] Syntax hatalari var mi? -> DUZELT
+- [ ] Istenmeyen icerik (tb, test, ornek) eklendi mi? -> CIKAR
+- [ ] Dogru tool secildi mi?
 
 ### Dokumantasyon Ciktisi
 
 - [ ] Mevcut icerik korundu mu?
-- [ ] Yapi (baslik, liste) bozuldu mu? → DUZELT
-- [ ] Eski girisler silindi mi? → GERI EKLE
+- [ ] Yapi (baslik, liste) bozuldu mu? -> DUZELT
+- [ ] Eski girisler silindi mi? -> GERI EKLE
 
 ### Degisiklik Ciktisi
 
-- [ ] TAM DOSYA olarak mi yazildi?
+- [ ] Uygun tool kullanildi mi?
 - [ ] Degismeyen kisimlar korundu mu?
-- [ ] Bosluklar/girintiler bozuldu mu? → DUZELT
+- [ ] Bosluklar/girintiler bozuldu mu? -> DUZELT
 
 ---
 
@@ -167,14 +111,14 @@ Cikti vermeden once su kontrolleri yap:
 | Syntax | Hatasiz, derlenebilir/calisabilir |
 | Isimlendirme | Tutarli, anlasilir |
 | Yapilandirma | Modular, okunabilir |
-| Yorumlar | Sadece istenirse, anlasilir |
+| Yorumlar | Sadece istenirse |
 
 ### Cikti Kalitesi
 
 | OLCUM | BEKLENTI |
 |-------|----------|
-| Tamllik | Dosyanin TAMAMI mevcut |
-| Dogruluk | Istenen degisiklik uygulanmis |
+| Tamlik | Istenen degisiklik tamamen uygulanmis |
+| Dogruluk | Davranis beklentiye uygun |
 | Koruma | Degismeyen kisimlar aynen |
 | Format | Girinti, bosluk korunmus |
 
@@ -182,25 +126,14 @@ Cikti vermeden once su kontrolleri yap:
 
 ## 5. HATA ONLEME
 
-### Yaygin Hatalar ve Onleme
-
 | HATA | ONLEME |
 |------|--------|
-| Kismi cikti | Her zaman TAM DOSYA yaz |
+| Kismi cikti | Tool secimini kapsama gore yap |
 | Testbench ekleme | Acikca istenmemisse EKLEME |
 | Icerik silme | Dokumantasyonda KORUMA modu |
 | Varsayim | Belirsizlikte SORU SOR |
 | Iteratif islem | Tek seferde TAMAMLA |
-
-### Kendin Kontrol Et
-
-```
-CIKTI VERMEDEN ONCE:
-1. "Bu cikti kullanicinin istegini tam karsiLiyor mu?"
-2. "Istenmeyen bir sey ekledim mi?"
-3. "Bir seyi silip kaybettim mi?"
-4. "Kisaltma veya placeholder kullandim mi?"
-```
+| Yanlis tool | Dogru tool'u kapsama gore sec |
 
 ---
 
@@ -208,66 +141,67 @@ CIKTI VERMEDEN ONCE:
 
 ### Bos Dosya
 
-```
-Dosya bos veya mevcut degil mi?
-→ Yeni dosya olarak olustur
-→ Uygun template/iskelet kullan
-```
+-> Yeni dosya olarak olustur, uygun template/iskelet kullan
 
-### Cok Buyuk Dosya
+### Cok Buyuk Dosya (1000+ satir)
 
-```
-Dosya 1000+ satir mi?
-→ Kullaniciya bilgi ver
-→ Yine de TAM DOSYA olarak isle
-→ Performans uyarisi ver (opsiyonel)
-```
+-> once grep_search ile hedef bolgeleri daralt
+-> uygun edit tool ile hedefli degisiklik uygula
+
+### Cok Buyuk Dosya (5000+ satir)
+
+-> context'i bolgesel topla, gereksiz satir yukleme
+-> degisiklik buyukse once net plan cikar
+-> cok genis degisikliklerde dosyayi mantikli parcalara ayirarak uygula
 
 ### Cakisan Istekler
 
-```
-Istekler birbiriyle celisiyor mu?
-→ Varsayim YAPMA
-→ Celiskiyi belirt ve soru sor
-```
+-> Varsayim YAPMA, celiskiyi belirt ve soru sor
 
 ### Belirsiz Konum
 
+-> Muhtemel konumlari listele, kullaniciya sor
+
+---
+
+## 7. MULTI-FILE OPERASYONLAR
+
 ```
-Degisiklik nereye yapilacak belli degil mi?
-→ Muhtemel konumlari listele
-→ Kullaniciya sor
+Birden fazla dosya degisecekse:
+1. Bagimlilik grafigi cikar (hangi dosya hangisine bagli)
+2. Degisiklik sirasini belirle (en alt seviyeden baslat)
+3. Her dosya icin uygun tool sec
+4. Degisiklikleri sirayla uygula
+5. Tutarlilik kontrolu (import, reference, interface)
 ```
 
 ---
 
-## 7. PERFORMANS OPTIMIZASYONU
+## 8. BUILD/TEST SONRASI VALIDASYON
+
+```
+Degisiklik sonrasi:
+|- FPGA -> Sentez calistirmayi oner, uyari kontrolu
+|- Embedded C -> Build calistirmayi oner, linker hatasi kontrolu
+|- C#/.NET -> dotnet build/test calistirmayi oner
+|- Python -> pytest calistirmayi oner
+'- Genel -> Uygun build/test komutunu oner
+```
+
+---
+
+## 9. DERINLIK VE VERIM DENGESI
 
 ### Context Verimli Kullanimi
 
 - Gereksiz dosya okuma YAPMA
 - Ilgili dosyalari ONCE tani
-- Buyuk dosyalarda stratejik okuma
+- Buyuk dosyalarda stratejik okuma (grep_search ile hedef bul)
+- Ancak kritik kararlar icin gerekli bolgeleri eksik birakma
 
-### Cikti Optimizasyonu
+### Cikti Kalitesi
 
-- Gereksiz aciklama EKLEME
+- Gereksiz dolgu aciklama EKLEME
 - Onemli bilgiyi ONE CIKAR
 - Kod ve aciklamayi AYIR
-
----
-
-## 8. SUREKLI IYILESTIRME
-
-### Her Istekten Ogrenme
-
-```
-1. Kullanici istegi net miydi?
-   → Degilse, bir dahaki sefere soru sor
-
-2. Cikti beklentiyi karsiladi mi?
-   → Karsilamadiysa, neden analiz et
-
-3. Hata veya duzeltme istendi mi?
-   → Hatanin kokunu anla, tekrarlama
-```
+- Derin refactor taleplerinde neden-sonuc bagini net kur

@@ -1,8 +1,8 @@
 ---
 name: CSharp .NET Rules
 description: |
-  C#, .NET, WPF ve WinForms icin kod stili,
-  async/await, MVVM ve anti-pattern kurallari.
+  C#, .NET, WPF, WinForms, EF Core ve modern .NET icin
+  kod stili, async/await, MVVM, DI ve anti-pattern kurallari.
 globs:
   - "**/*.cs"
   - "**/*.xaml"
@@ -12,12 +12,14 @@ globs:
   - "**/Views/**/*"
   - "**/Models/**/*"
   - "**/Services/**/*"
+  - "**/Controllers/**/*"
+  - "**/Migrations/**/*"
 alwaysApply: false
 ---
 
 # C# .NET KURALLARI
 
-Bu kurallar C#, .NET, WPF ve WinForms gelistirme icin gecerlidir.
+Bu kurallar C#, .NET, WPF, WinForms ve modern .NET gelistirme icin gecerlidir.
 
 ---
 
@@ -33,6 +35,9 @@ Bu kurallar C#, .NET, WPF ve WinForms gelistirme icin gecerlidir.
 | Private field | _camelCase | _userService, _isReady |
 | Local, Parameter | camelCase | userId, itemCount |
 | Async method | Async suffix | GetDataAsync, SaveAsync |
+| Constant | PascalCase | MaxRetryCount |
+| Enum | PascalCase | ConnectionState |
+| Generic type | T prefix | TEntity, TResult |
 
 ### Dosya Yapisi
 
@@ -46,12 +51,12 @@ namespace MyProject.Services;
 public class UserService : IUserService
 {
     private readonly ILogger<UserService> _logger;
-    
+
     public UserService(ILogger<UserService> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
-    
+
     public async Task<User?> GetByIdAsync(int id, CancellationToken ct = default)
     {
         // Implementation
@@ -90,6 +95,21 @@ public async Task<Result> ProcessAsync(CancellationToken ct = default)
 }
 ```
 
+### Task vs ValueTask
+
+```csharp
+// Task: Genel kullanim, caching yok
+public async Task<Data> GetDataAsync() { }
+
+// ValueTask: Sonuc genellikle cache'den geliyorsa (allocation azaltir)
+public async ValueTask<Data> GetCachedDataAsync()
+{
+    if (_cache.TryGet(key, out var data))
+        return data;  // Allocation yok
+    return await FetchFromDbAsync();
+}
+```
+
 ---
 
 ## 3. WPF / MVVM
@@ -100,8 +120,8 @@ public async Task<Result> ProcessAsync(CancellationToken ct = default)
 public abstract class ViewModelBase : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
-    
-    protected bool SetProperty<T>(ref T field, T value, 
+
+    protected bool SetProperty<T>(ref T field, T value,
         [CallerMemberName] string? name = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
@@ -113,20 +133,142 @@ public abstract class ViewModelBase : INotifyPropertyChanged
 }
 ```
 
-### Property
+### RelayCommand (ICommand)
 
 ```csharp
-private string _userName = string.Empty;
-public string UserName
+public class RelayCommand : ICommand
 {
-    get => _userName;
-    set => SetProperty(ref _userName, value);
+    private readonly Action<object?> _execute;
+    private readonly Func<object?, bool>? _canExecute;
+
+    public RelayCommand(Action<object?> execute, Func<object?, bool>? canExecute = null)
+    {
+        _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+        _canExecute = canExecute;
+    }
+
+    public event EventHandler? CanExecuteChanged;
+    public bool CanExecute(object? parameter) => _canExecute?.Invoke(parameter) ?? true;
+    public void Execute(object? parameter) => _execute(parameter);
+    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+}
+```
+
+### Custom Control & Attached Property
+
+```csharp
+// Attached Property
+public static class GridHelper
+{
+    public static readonly DependencyProperty HighlightProperty =
+        DependencyProperty.RegisterAttached("Highlight", typeof(bool),
+            typeof(GridHelper), new PropertyMetadata(false, OnHighlightChanged));
+
+    public static bool GetHighlight(DependencyObject obj)
+        => (bool)obj.GetValue(HighlightProperty);
+
+    public static void SetHighlight(DependencyObject obj, bool value)
+        => obj.SetValue(HighlightProperty, value);
+
+    private static void OnHighlightChanged(DependencyObject d,
+        DependencyPropertyChangedEventArgs e) { }
 }
 ```
 
 ---
 
-## 4. ANTI-PATTERNS
+## 4. EF CORE PATTERN'LERI
+
+### Repository Pattern
+
+```csharp
+public interface IRepository<T> where T : class
+{
+    Task<T?> GetByIdAsync(int id, CancellationToken ct = default);
+    Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default);
+    Task AddAsync(T entity, CancellationToken ct = default);
+    Task UpdateAsync(T entity, CancellationToken ct = default);
+    Task DeleteAsync(T entity, CancellationToken ct = default);
+}
+
+public class Repository<T> : IRepository<T> where T : class
+{
+    private readonly DbContext _context;
+    private readonly DbSet<T> _dbSet;
+
+    public Repository(DbContext context)
+    {
+        _context = context;
+        _dbSet = context.Set<T>();
+    }
+
+    public async Task<T?> GetByIdAsync(int id, CancellationToken ct = default)
+        => await _dbSet.FindAsync(new object[] { id }, ct);
+
+    public async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default)
+        => await _dbSet.ToListAsync(ct);
+
+    public async Task AddAsync(T entity, CancellationToken ct = default)
+    {
+        await _dbSet.AddAsync(entity, ct);
+        await _context.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateAsync(T entity, CancellationToken ct = default)
+    {
+        _dbSet.Update(entity);
+        await _context.SaveChangesAsync(ct);
+    }
+
+    public async Task DeleteAsync(T entity, CancellationToken ct = default)
+    {
+        _dbSet.Remove(entity);
+        await _context.SaveChangesAsync(ct);
+    }
+}
+```
+
+### Unit of Work
+
+```csharp
+public interface IUnitOfWork : IDisposable
+{
+    IRepository<Order> Orders { get; }
+    IRepository<Product> Products { get; }
+    Task<int> SaveChangesAsync(CancellationToken ct = default);
+}
+```
+
+---
+
+## 5. MINIMAL API (.NET 6+)
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddScoped<IOrderService, OrderService>();
+
+var app = builder.Build();
+
+app.MapGet("/api/orders", async (IOrderService service) =>
+    Results.Ok(await service.GetAllAsync()));
+
+app.MapGet("/api/orders/{id}", async (int id, IOrderService service) =>
+    await service.GetByIdAsync(id) is { } order
+        ? Results.Ok(order)
+        : Results.NotFound());
+
+app.MapPost("/api/orders", async (CreateOrderDto dto, IOrderService service) =>
+{
+    var order = await service.CreateAsync(dto);
+    return Results.Created($"/api/orders/{order.Id}", order);
+});
+
+app.Run();
+```
+
+---
+
+## 6. ANTI-PATTERNS
 
 ### async void
 
@@ -141,7 +283,7 @@ public async Task ProcessAsync() { }
 private async void Button_Click(object sender, EventArgs e)
 {
     try { await ProcessAsync(); }
-    catch (Exception ex) { /* Handle */ }
+    catch (Exception ex) { _logger.LogError(ex, "Failed"); }
 }
 ```
 
@@ -196,14 +338,14 @@ catch { }
 try { DoSomething(); }
 catch (SpecificException ex)
 {
-    _logger.LogError(ex, "Failed");
+    _logger.LogError(ex, "Context: {Message}", ex.Message);
     throw;
 }
 ```
 
 ---
 
-## 5. NULL HANDLING
+## 7. NULL HANDLING
 
 ```csharp
 // Null check
@@ -212,21 +354,21 @@ if (value is not null) { }
 // Null-conditional
 var length = value?.Length ?? 0;
 
-// Guard clause
+// Guard clause (.NET 6+)
 ArgumentNullException.ThrowIfNull(user);
 ArgumentException.ThrowIfNullOrWhiteSpace(name);
 ```
 
 ---
 
-## 6. DEPENDENCY INJECTION
+## 8. DEPENDENCY INJECTION
 
 ```csharp
 public class OrderService : IOrderService
 {
     private readonly IOrderRepository _repo;
     private readonly ILogger<OrderService> _logger;
-    
+
     public OrderService(IOrderRepository repo, ILogger<OrderService> logger)
     {
         _repo = repo ?? throw new ArgumentNullException(nameof(repo));
@@ -242,12 +384,12 @@ services.AddTransient<IEmailService, EmailService>();
 
 ---
 
-## 7. MODERN C#
+## 9. MODERN C#
 
 ### Pattern Matching
 
 ```csharp
-if (obj is string text) { }
+if (obj is string { Length: > 0 } text) { }
 
 var result = status switch
 {
@@ -262,4 +404,56 @@ var result = status switch
 ```csharp
 public record User(int Id, string Name, string Email);
 var updated = user with { Email = "new@email.com" };
+```
+
+### File-Scoped Namespace
+
+```csharp
+namespace MyProject.Services;
+
+public class MyService { }
+```
+
+### Global Using (ImplicitUsings)
+
+```csharp
+// GlobalUsings.cs
+global using System;
+global using System.Collections.Generic;
+global using System.Linq;
+global using System.Threading.Tasks;
+```
+
+---
+
+## 10. PERFORMANCE
+
+### Span<T> ve Memory
+
+```csharp
+// Heap allocation olmadan dizi isleme
+ReadOnlySpan<char> span = "Hello, World!".AsSpan();
+var word = span[0..5];  // "Hello" - allocation yok
+```
+
+### StringBuilder
+
+```csharp
+// YANLIS: String concatenation (O(n^2))
+string result = "";
+for (int i = 0; i < 1000; i++)
+    result += i.ToString();
+
+// DOGRU
+var sb = new StringBuilder();
+for (int i = 0; i < 1000; i++)
+    sb.Append(i);
+string result = sb.ToString();
+```
+
+### Lazy Initialization
+
+```csharp
+private readonly Lazy<ExpensiveObject> _expensive = new(() => new ExpensiveObject());
+public ExpensiveObject Expensive => _expensive.Value;
 ```

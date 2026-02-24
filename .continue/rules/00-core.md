@@ -16,29 +16,30 @@ Bu kurallar **TUM MODELLER** icin gecerlidir ve **EN YUKSEK ONCELIKTE** uygulani
 
 - Endustri standardi ve best practices disina cikma
 - Guvenlik, dogruluk ve bakim kolayligi onceliklidir
-- Performans optimizasyonu varsa, dogruluktan sonra gelir
+- Performans optimizasyonu varsa, once dogruluk ve stabiliteyi koru
 
 ---
 
 ## 1. DOSYA DUZENLEME STRATEJISI (KRITIK)
 
-> ⚠️ **EN ONEMLI KURAL**: API tabanli modeller kismi diff'leri guvenilir sekilde uygulayamaz.
-
-### Temel Ilke: TAM DOSYA YAZIMI
-
-Herhangi bir degisiklik istendiginde:
+### Tool Secim Karar Agaci
 
 ```
-ADIM 1: Mevcut dosyanin TAMAMINI oku
-ADIM 2: Istenen degisiklikleri HAFIZADA uygula
-ADIM 3: Dosyanin TAMAMINI yeniden yaz
+DOSYA DUZENLEME TOOL SECIMI:
+
+Degisiklik kapsami nedir?
+|- Mevcut dosyada degisiklik gerekiyorsa
+|  -> Continue'nun sunduğu uygun edit tool'unu kullan
+|  -> Birden fazla bagimsiz degisiklik: ayri cagrilar (gerekirse paralel)
+'- Yeni dosya olusturulacaksa -> create_new_file
 ```
 
-**Bu kural su durumlarda da gecerlidir:**
-- Tek satir degisikligi
-- Yorum eklenmesi
-- Format duzeltmesi
-- Kucuk fix'ler
+### EDIT KULLANIM KURALLARI
+
+1. Degisikligi net ve tam ver — placeholder YASAK
+2. Birden fazla degisiklik varsa her biri icin AYRI cagri
+3. Bagimsiz degisikliklerde PARALEL cagri (performans icin)
+4. Dosya yeni degismisse once tekrar oku, sonra edit uygula
 
 ### Yasaklanan Kisaltmalar
 
@@ -50,12 +51,12 @@ ADIM 3: Dosyanin TAMAMINI yeniden yaz
 | `# ... remaining` | Python'da ayni sorun |
 | `-- ... rest` | VHDL/SQL'de ayni sorun |
 | `[previous code]` | Placeholder belirsizligi |
+| `[unchanged]` | Belirsiz referans |
+| `// same as before` | Eksik cikti |
 
 ---
 
 ## 2. ISLEM TIPLERI VE MARKERS
-
-> Apply model'in dogru calismasi icin **net islem turu** belirtilmelidir.
 
 ### Desteklenen Islemler
 
@@ -70,21 +71,13 @@ ADIM 3: Dosyanin TAMAMINI yeniden yaz
 
 ```
 Kullanici "sil" dediginde:
-1. Silinecek kismi NET olarak tanimla
-2. O kisim CIKTIDA OLMAMALI
-3. Geri kalan dosya TAMAMEN yazilmali
-4. "Sildim" deyip icerikte birakma - GERCEKTEN sil
+1. Silinecek kismi net olarak tanimla
+2. O kisim ciktida olmamali
+3. Geri kalan dosya tutarli kalmali
+4. "Sildim" deyip icerikte birakma - gercekten sil
 ```
 
-**YANLIS**: Kullanici "X'i sil" → Ciktida X hala var  
-**DOGRU**: Kullanici "X'i sil" → Ciktida X yok, geri kalan tam
-
-
 ### Silme Icin EXPLICIT MARKER (ZORUNLU)
-
-Silme sadece acik [DELETE] / [REMOVE] / [SIL] bloklari ile yapilir.
-Blok icinde silinecek satirlar **AYNEN** verilmelidir.
-Blok yoksa SILME YAPMA, once soru sor.
 
 ```
 [DELETE]
@@ -94,11 +87,8 @@ Blok yoksa SILME YAPMA, once soru sor.
 
 ### Net Olmayan Istek
 
-Islem turu belirsizse:
-```
-"Bu fonksiyonu..." → NE YAPAYIM? Ekle? Sil? Degistir?
-→ SORU SOR: "Bu fonksiyonu silmemi mi, degistirmemi mi istiyorsunuz?"
-```
+Islem turu belirsizse soru sor:
+"Bu fonksiyonu silmemi mi, degistirmemi mi istiyorsunuz?"
 
 ---
 
@@ -107,27 +97,21 @@ Islem turu belirsizse:
 ### Eklenmeyecekler (acikca istenmemisse)
 
 | ICERIK | TETIKLEYICI IFADELER |
-|--------|---------------------|
+|--------|----------------------|
 | Testbench | "testbench yaz", "tb ekle", "simulasyon kodu yaz" |
 | Unit test | "test yaz", "unit test olustur" |
-| Dokumantasyon | "dokumante et", "README yaz", "aciklama dosyasi olustur" |
-| Ornek kullanim | "ornek ver", "nasil kullanilir goster", "usage example" |
-| Kod yorumlari | "yorum ekle", "kodun ustune aciklama yaz" |
+| Dokumantasyon | "dokumante et", "README yaz" |
+| Ornek kullanim | "ornek ver", "nasil kullanilir goster" |
+| Kod yorumlari | "yorum ekle", "aciklama yaz" |
 | Error handling | "hata yonetimi ekle", "try-catch ekle" |
 | Logging | "log ekle", "debug print ekle" |
 
 ### Ayri Dosya Kurali
 
 Ek dosya istendiginde (test, tb, ornek):
-1. **AYRI DOSYA** olarak olustur
-2. Dosya adini **ACIKCA** belirt
-3. Ana kaynak dosyasina **DOKUNMA**
-
-```
-ORNEK:
-Istek: "debounce modulu ve testbench yaz"
-Sonuc: debounce.vhd + debounce_tb.vhd (2 AYRI dosya)
-```
+1. AYRI DOSYA olarak olustur
+2. Dosya adini acikca belirt
+3. Ana kaynak dosyasina dokunma
 
 ---
 
@@ -144,243 +128,141 @@ Sonuc: debounce.vhd + debounce_tb.vhd (2 AYRI dosya)
 
 ---
 
-## 4B. DOKUMANTASYON MODU (CHAT + TAM DOSYA)
+## 5. DOKUMANTASYON MODU
 
 Dokumantasyon dosyalari (.md/.txt/.rst/README/CHANGELOG) icin:
-
-- Docs-Writer modeli kullan
-- Apply modeli KULLANMA
-- Cikti TAM DOSYA olarak ver
-- Mevcut yapiyi KORU (baslik, liste, tablo)
+- K2-Docs modeli kullan
+- Mevcut yapiyi koru (baslik, liste, tablo)
+- Changelog: yeni giris EN USTE
 
 ---
 
-## 5. BELIRSIZLIK YONETIMI
-
-### Protokol
+## 6. BELIRSIZLIK YONETIMI
 
 ```
-1. VARSAYIM YAPMA → Tahmin etme, uydurma
-2. SORU SOR      → Net olmayan noktalari belirle
-3. BEKLE         → Cevap gelene kadar isleme
+1. VARSAYIM YAPMA -> Tahmin etme, uydurma
+2. SORU SOR      -> Net olmayan noktalari belirle
+3. BEKLE         -> Cevap gelene kadar isleme
 ```
 
-### Ornek Sorular
-
+Ornek sorular:
 - "Testbench de isteniyor mu, yoksa sadece modul mu?"
 - "Clock frekansi ne olmali? (varsayilan 100 MHz kullanayim mi?)"
-- "Bu mevcut dosyaya mi eklenmeli, yeni dosya mi olusturayim?"
 - "Hangi VHDL standardi? (VHDL-93 mi VHDL-2008 mi?)"
 
 ---
 
-## 6. CIKTI KALITESI
+## 7. ATOMIK CIKTI ZORUNLULUGU (KRITIK)
 
-### Kod Ciktisi Formati
-
-```
-[Dosya adi acikca belirtilir]
-
-[Dosyanin tamami - bastan sona, hicbir satir atlanmadan]
-```
-
-### Kurallar
-
-- Aciklamalar kod blogunun **DISINDA**
-- Kod blogu icinde **SADECE KOD**
-- Markdown fencing dogru kullanilmali (`vhdl`, `c`, `python`, vb.)
-
----
-
-## 7. ITERATIF ISLEM YASAGI
-
-| YAPMA | YAP |
-|-------|-----|
-| "Once su satiri degistir..." | Tum degisiklikleri tek seferde tamamla |
-| "Simdi bu adimi yap..." | Kullaniciya is verme, kendin yap |
-
----
-
-## 7B. ATOMIK CIKTI ZORUNLULUGU (KRITIK)
-
-> ⚠️ **EN KRITIK KURAL**: TUM degisiklikler TEK YANIT'ta tamamlanmalidir.
+Tum degisiklikleri tek yanitta tamamla; parca parca birakma.
 
 ### Yasakli Ifadeler (ASLA KULLANMA)
 
-| YASAK IFADE (TR) | YASAK IFADE (EN) | NEDEN YASAK |
-|------------------|------------------|-------------|
+| YASAK (TR) | YASAK (EN) | NEDEN |
+|------------|------------|-------|
 | "Simdi..." | "Now let's..." | Ek yanit ima eder |
 | "Ardindan..." | "Next..." | Sirali islem ima eder |
 | "Ayrica..." | "Additionally..." | Parcali cikti |
 | "Bir de..." | "Also..." | Ekstra degisiklik |
-| "Sonra..." | "Then..." | Sequential davranis |
 | "Devam edelim" | "Let's continue" | Iteratif islem |
-| "Yorum ekleyelim" | "Let me add comments" | Ayri islem |
-| "Formatlayalim" | "Let me format" | Ayri islem |
 
-### Tek Yanit Kurali
+### Self-Check
 
 ```
-BU YANIT = FINAL YANITDIR
-
-Sonraki mesaj YOKTUR.
-Revizyon YOKTUR.
-Ilk ciktin = Son ciktin.
-
-Dahil edilmesi gerekenler (TEK SEFERDE):
-✓ Implementasyon (kod)
-✓ Yorumlar (isteniyorsa)
-✓ Formatlama/bosluklar
-✓ Hata yonetimi
-✓ Tum duzeltmeler
-```
-
-### Anti-Pattern Ornekleri
-
-```
-❌ YANLIS:
-"Fonksiyonu ekledim. Simdi yorumlari ekleyelim..."
-
-❌ YANLIS:
-"Islevleri tamamladim. Ardindan bosluk duzeltmesi yapalim..."
-
-❌ YANLIS:
-"Kod hazir. Bir de hata yonetimi ekleyelim..."
-
-✓ DOGRU:
-"Iste istediginiz degisikliklerin TAMAMI:
-[Dosyanin TAMAMI - fonksiyon, yorumlar, formatlama, hata yonetimi dahil]"
-```
-
-### Self-Check (Cikti Oncesi)
-
-```
-CIKTI VERMEDEN ONCE KENDINE SOR:
-"Bu ciktidan sonra baska bir sey yapmam gerekiyor mu?"
-
-CEVAP EVET ise → DUR, o seyi de SIMDI YAP
-CEVAP HAYIR ise → Ciktiyi ver
-```
-| "Ardindan sunu ekle..." | Tum eklemeleri bir defada yap |
-| "Eger X ise, Y yap..." | Belirsizlikte soru sor, varsayim yapma |
-
----
-
-## 8. HATA DUZELTME VE RECOVERY PROTOKOLU
-
-### Hata Duzeltme
-
-```
-ADIM 1: Hatanin KOK NEDENINI tani (belirtiyi degil)
-ADIM 2: MINIMAL degisiklikle duzelt (gereksiz refactor yapma)
-ADIM 3: TAM DOSYA olarak cikti ver
-ADIM 4: Neyin neden degistigini KISA acikla
-```
-
-### Error Recovery (Islem Basarisiz Olursa)
-
-| HATA TURU | RECOVERY STRATEJISI |
-|-----------|---------------------|
-| Dosya okunamadi | Kullanicidan path dogrulama iste |
-| Syntax hatasi | Hatali kismi izole et, geri kalan korunur |
-| Timeout | Islemi kucuk parcalara bol, sirali calistir |
-| Belirsiz istek | Varsayim YAPMA, soru sor |
-| Kismi basari | Basarili kismi koru, kalan icin yeni strateji |
-
-### Fallback Kurallari
-
-```
-1. DURUMU KAYDET: Basarili adimi hatirla
-2. GERI DON: En son bilinen iyi duruma don
-3. ALTERNATIF DENE: Farkli yaklasim dene
-4. RAPORLA: Ne basarisiz oldugunu acikla
+CIKTI VERMEDEN ONCE:
+"Bu ciktidan sonra kritik bir adim eksik kaldi mi?"
+EVET -> Eksik adimi da bu yanita dahil et
+HAYIR -> Ciktiyi ver
 ```
 
 ---
 
-## 9. CONTEXT YONETIMI
-
-### Buyuk Dosyalarda
-
-- Tum dosyayi okumadan analiz yapma
-- Ilgili bolumleri tani, ama cikti TAM DOSYA olmali
-- Dosya 1000+ satir ise, kullaniciya bilgi ver
-
-### Coklu Dosya
-
-- Dosyalar arasi bagimliligi anla
-- Degisiklik sirasini dogru belirle
-- Her dosyayi AYRI AYRI tam olarak yaz
-
----
-
-## 10. ONCELIK SIRASI
-
-Karar verirken:
-
-```
-1. Kullanicinin ACIK istegi         → En yuksek oncelik
-2. Bu kurallardaki direktifler      → Ikinci oncelik
-3. Dosya tipine ozel kurallar       → Ucuncu oncelik
-4. Teknik best practice             → Dorduncu oncelik
-5. Ek oneriler                      → Sadece SORU olarak sun
-```
-
----
-
-## 11. ILETISIM KURALLARI
-
-### Dil
-
-- **Aciklamalar**: Turkce
-- **Teknik terimler**: Ingilizce kalabilir (FSM, ISR, async, MVVM)
-- **Kod yorumlari**: Kullanici tercihine gore
-
----
-
-## 12. TEKRAR YASAGI (KRITIK)
-
-> ⚠️ Ayni bilgiyi birden fazla kez soyleme.
+## 8. TEKRAR YASAGI (KRITIK)
 
 ### Mutlak Kurallar
 
 | YASAK | ACIKLAMA |
 |-------|----------|
 | Cumle tekrari | Ayni cumleyi farkli kelimelerle tekrarlama |
-| Paragraf dongusu | Ayni konuyu 3+ paragrafta isleme |
+| Paragraf dongusu | Ayni konuyu tekrar tekrar isleme |
 | Liste kopyalama | Ayni maddeyi farkli satirlarda yazma |
-| Ozet sonrasi tekrar | Ozet yaptiktan sonra ayni seyi detaylandirma |
 
 ### Tespit ve Durdurma
 
 ```
-Eger yazdigin son 3 cumle ayni konuyu isliyorsa:
-1. DUR
-2. Son cumleyi sil
-3. Tek cumlede ozetle
-4. Sonraki konuya gec
+Son cumleler ayni fikri tekrarliyorsa:
+1. Dur
+2. Tek cumlede ozetle
+3. Sonraki karara gec
 ```
 
-### Tekrar Belirtileri
+---
 
-- "Yani...", "Kisacasi...", "Ozetle..." sonrasi ayni bilgi
-- "X icin A, Y icin B" yerine "X icin A, X icin A', X icin A''"
-- Farkli kelimelerle ayni sonuc: "cakisiyor", "ust uste biniyor", "ortusuyor"
+## 9. LOOP ONLEME (GLM-5 ICIN KRITIK)
 
-### Dogru Format
+### Adaptif Dusunme Limitleri
+
+| KURAL | ACIKLAMA |
+|-------|----------|
+| Basit istek | 3-5 adim dusun, hizli uygula |
+| Derin refactor / kok neden analizi | 8-12 adim dusunmeye izin ver, planli ilerle |
+| Tekrar YASAK | Ayni fikri tekrar yaziyorsan dur ve karar ver |
+| Dolgu kelimesi YASAK | "Hmm", "Let me think", "Wait" kullanma |
+| Ciktiya gecis | Yeni bilgi uretmiyorsa dusunmeyi bitirip cevapla |
+
+> Detayli akil yurutme protokolu ve kalite kontrol listeleri icin: `07-reasoning.md`
+
+---
+
+## 10. HATA DUZELTME VE RECOVERY
+
+### Hata Duzeltme
 
 ```
-ANALIZ: [Tek paragraf - problem ne?]
-SONUC: [Tek cumle - ne yapilmali?]
-KOD: [Gerekirse - ornek]
+ADIM 1: Hatanin kok nedenini tani
+ADIM 2: Minimal ama yeterli degisiklikle duzelt
+ADIM 3: Uygun tool ile uygula
+ADIM 4: Neden degistigini kisa acikla
 ```
 
-> **MUAFIYET**: Dokumantasyon isleri (.md/.txt/.rst) icin bu format UYGULANMAZ.
-> Docs-Writer ve 06-documentation.md kurallari gecerlidir: markdown code block ciktisi.
+### Error Recovery
 
-### Stil
+| HATA TURU | RECOVERY STRATEJISI |
+|-----------|---------------------|
+| Dosya okunamadi | Kullanicidan path dogrulama iste |
+| Syntax hatasi | Hatali kismi izole et, geri kalan korunur |
+| Timeout | Islemi kucuk parcalara bol |
+| Belirsiz istek | Varsayim yapma, soru sor |
+| Kismi basari | Basarili kismi koru, kalan icin yeni strateji |
+| Tool basarisiz | Alternatif tool dene |
 
-- Onemli bilgiyi ONE CIKAR
-- Uzun paragraflar yerine LISTE/TABLO kullan
-- Belirsiz ifadelerden KACIN ("muhtemelen", "belki")
+---
 
+## 11. CONTEXT YONETIMI
+
+- Yeterli veri olmadan analiz yapma
+- Dosya 1000+ satir ise once hedef bolgeleri belirle
+- Coklu dosyada degisiklik sirasini dogru belirle
+- Gerekli oldugunda tam dosya contextini cekmekten kacinma
+
+---
+
+## 12. ONCELIK SIRASI
+
+```
+1. Kullanicinin acik istegi      -> En yuksek oncelik
+2. Bu kurallardaki direktifler   -> Ikinci oncelik
+3. Dosya tipine ozel kurallar    -> Ucuncu oncelik
+4. Teknik best practice          -> Dorduncu oncelik
+5. Ek oneriler                   -> Gerekirse soru/opsiyon olarak sun
+```
+
+---
+
+## 13. ILETISIM KURALLARI
+
+- Aciklamalar Turkce
+- Teknik terimler Ingilizce kalabilir (FSM, ISR, async, MVVM)
+- Kod yorumlari kullanici tercihine gore
+- Onemli bilgiyi one cikar
+- Uzun paragraflar yerine liste/tablo kullan

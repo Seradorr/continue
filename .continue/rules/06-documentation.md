@@ -1,9 +1,9 @@
 ---
 name: Documentation Rules
 description: |
-  Markdown, README ve teknik dokumantasyon dosyalari icin 
+  Markdown, README ve teknik dokumantasyon dosyalari icin
   koruma, guncelleme ve format kurallari.
-  Docs-Writer modeli CHAT'e markdown olarak yazar, Apply KULLANMAZ.
+  K2-Docs modeli agent modunda dokumantasyon dosyalarini duzenler.
 globs:
   - "**/*.md"
   - "**/README*"
@@ -17,39 +17,7 @@ alwaysApply: false
 # DOKUMANTASYON KURALLARI
 
 Bu kurallar tum dokumantasyon dosyalari icin gecerlidir.
-
----
-
-## 0. CIKTI YONTEMI (KRITIK)
-
-> ⚠️ Dokumantasyon icin Apply modeli KULLANILMAZ.
-
-### Neden?
-
-Apply modeli kod dosyalari icin optimize edilmistir.
-Dokumantasyonda icerik kaybi ve format bozulmasi yasanabilir.
-
-### Cozum: Markdown Code Block
-
-Docs-Writer modeli ciktisini **her zaman** markdown code block icinde verir:
-
-```markdown
-# Dokuman Basligi
-
-Tam icerik buraya...
-```
-
-### Kullanici Akisi
-
-1. Model: Dokumantasyonu markdown block icinde yazar
-2. Kullanici: Blogu kopyalar
-3. Kullanici: Dosyaya yapistirip kaydeder
-
-Bu yontem:
-- ✅ Format korunur
-- ✅ Icerik kaybi olmaz
-- ✅ Kullanici kontrolunde
-- ✅ Apply model sorunlari bypass edilir
+K2-Docs modeli agent modunda calısır ve dosyalari dogrudan duzenleyebilir.
 
 ---
 
@@ -83,23 +51,13 @@ Bu durumda:
 
 ### Silme Icin EXPLICIT MARKER (ZORUNLU)
 
-Dokumantasyonda silme sadece acik [DELETE] / [REMOVE] / [SIL] bloklari ile yapilir.
-Blok icinde silinecek satirlar **AYNEN** verilmelidir.
-Belirsiz isteklerde ("temizle", "sadelestir", "kisa tut") silme YAPMA.
-
 ```
 [DELETE]
 <silinecek satirlarin tamami>
 [/DELETE]
 ```
 
-### Korunmasi Gerekenler (silme istenmemisse)
-
-| KURAL | ACIKLAMA |
-|-------|----------|
-| Once oku | Dosyanin TAMAMINI oku |
-| Tumu yaz | Mevcut + degisiklik birlikte |
-| Format koru | Baslik, liste, tablo yapisi degismemeli |
+Belirsiz isteklerde ("temizle", "sadelestir", "kisa tut") silme YAPMA.
 
 ### Guncelleme Akisi
 
@@ -115,52 +73,7 @@ Belirsiz isteklerde ("temizle", "sadelestir", "kisa tut") silme YAPMA.
 
 ---
 
-## 2. ISLEM TIPLERI
-
-### "Ekle" Istegi
-
-```
-MEVCUT DOSYA + YENI ICERIK = SONUC
-
-Ornek:
-- "Changelog'a yeni giris ekle"
-- "README'ye kurulum bolumu ekle"
-- "Dokumantasyona ornek ekle"
-```
-
-### "Guncelle" Istegi
-
-```
-SADECE BELIRTILEN KISIM DEGISIR
-GERI KALAN AYNEN KALIR
-
-Ornek:
-- "Surum numarasini guncelle"
-- "Tarih bilgisini duzelt"
-- "Baslik metnini degistir"
-```
-
-### "Sil" Istegi
-
-```
-Kullanici silme istediginde:
-
-1. Silinecek kismi NET tanimla
-2. O kisim CIKTIDA OLMAMALI (gercekten sil)
-3. Geri kalan icerik TAMAMEN yazilmali
-4. Sonuc = mevcut_dosya - silinecek_kisim
-
-Ornek:
-- "X bolumunu kaldir" → X ciktida yok, geri kalan tam
-- "Bu paragrafi sil" → Paragraf yok, diger paragraflar tam
-- "Yorumlari temizle" → Yorumlar yok, kod tam
-```
-
-> ⚠️ "Sildim" deyip icerikte birakma - GERCEKTEN cikar!
-
----
-
-## 3. CHANGELOG / DEGISIKLIK TAKIBI
+## 2. CHANGELOG / DEGISIKLIK TAKIBI
 
 ### Yeni Giris Ekleme
 
@@ -185,7 +98,7 @@ Ornek:
 
 ---
 
-## 4. YAPI KORUMA
+## 3. YAPI KORUMA
 
 ### Korunmasi Gerekenler
 
@@ -209,7 +122,7 @@ YANLIS: Baslik seviyesi degistirme (# → ##)
 
 ---
 
-## 5. ASLA YAPILMAYACAKLAR
+## 4. ASLA YAPILMAYACAKLAR
 
 | YASAK | ACIKLAMA |
 |-------|----------|
@@ -221,7 +134,7 @@ YANLIS: Baslik seviyesi degistirme (# → ##)
 
 ---
 
-## 6. ORNEK SENARYOLAR
+## 5. ORNEK SENARYOLAR
 
 ### Senaryo 1: Changelog'a Ekleme
 
@@ -243,19 +156,9 @@ YANLIS: Baslik seviyesi degistirme (# → ##)
 3. Diger tum bolumler AYNEN kalir
 4. Tum dosyayi yaz
 
-### Senaryo 3: Dokumantasyona Bolum Ekleme
-
-**Istek**: "API dokumantasyonuna yeni endpoint ekle"
-
-**Dogru Yaklasim**:
-1. Dosyayi oku
-2. Mevcut endpointler korunur
-3. Yeni endpoint uygun yere eklenir
-4. Tum dosyayi yaz
-
 ---
 
-## 7. DUZGUN CIKTI FORMATI
+## 6. CIKTI FORMATI
 
 ```markdown
 [Dosya adi belirtilir]

@@ -1,9 +1,9 @@
 # Continue AI Configuration - Professional Local LLM Setup
 
-**Version**: 4.4.0  
-**Last Updated**: 2026-02-05
+**Version**: 7.0.0
+**Last Updated**: 2026-02-24
 
-Lokal olarak çalışan LLM'leri (GLM-4.7, Qwen3) GitHub Copilot seviyesinde kod üretimi, debugging, refactoring ve dokümantasyon için optimize eden Continue IDE eklentisi yapılandırması.
+Lokal olarak çalışan LLM'leri (GLM-5, Kimi-K2.5, Qwen3) GitHub Copilot seviyesinde kod üretimi, debugging, refactoring ve dokümantasyon için optimize eden Continue IDE eklentisi yapılandırması.
 
 ---
 
@@ -17,7 +17,8 @@ Bu proje, **lokal LLM'lerin profesyonel yazılım geliştirme asistanı olarak k
 | **Uzmanlık Alanları** | FPGA/RTL, Embedded C, C#/.NET, Python |
 | **Mimari Danışmanlık** | Proje analizi, pattern tespiti, iyileştirme önerileri |
 | **Dokümantasyon** | README, Changelog, API docs oluşturma/güncelleme |
-| **Tam Dosya Çıktısı** | Kısmi diff yerine tam dosya yazımı (API modelleri için) |
+| **Şematik/Görsel Analiz** | Devre şeması, blok diyagram, Excel pin mapping okuma |
+| **Versiyon Kontrol** | Git operasyonları, commit analizi, branch yönetimi |
 
 ---
 
@@ -25,14 +26,37 @@ Bu proje, **lokal LLM'lerin profesyonel yazılım geliştirme asistanı olarak k
 
 ### Model Yapılandırması
 
-| Model | Rol | Context | Kullanım Alanı |
-|-------|-----|---------|----------------|
-| **GLM-4.7-FP8** | Tüm uzmanlık modelleri | 131K | FPGA, Vitis, C#, Python, Docs, Advisor |
-| **Qwen3-Next-80B** | Apply-Model | 262K | Deterministik kod birleştirme |
-| **Qwen3-Coder-480B** | Rerank | 131K | Arama sonucu sıralama |
-| **Qwen3-Embedding-8B** | Embed | - | Vektörleştirme |
+| # | Model | Rol | Context | Kullanım Alanı |
+|---|-------|-----|---------|----------------|
+| 1-4 | **GLM-5-FP8** | Uzmanlık modelleri | 131K | FPGA, Vitis, C#, Python |
+| 5-9 | **Kimi-K2.5** | Uzmanlık modelleri | 128K | FPGA, Vitis, C#, Python, Docs |
+| 10 | **Kimi-K2.5** | Schematic-Engineer | 128K | Şematik/görsel okuma (image_input) |
+| 11 | **Kimi-K2.5** | Git-Expert | 128K | Versiyon kontrol yönetimi |
+| 12 | **Qwen3-Next-80B** | Quick-Engineer | 262K | Hızlı temel işler (3B aktif MoE) |
+| 13 | **Qwen3-Coder-480B** | Rerank | 131K | Arama sonucu sıralama |
+| 14 | **Qwen3-Embedding-8B** | Embed | - | Vektörleştirme |
 
-> **Not:** Kimi-K2.5 tool token leakage sorunu nedeniyle şu an kullanılmıyor. vLLM PR #28543 merge edildi, güncelleme sonrası tekrar denenecek.
+### GLM-5-FP8 Bilgileri
+
+| Özellik | Değer |
+|---------|-------|
+| Toplam Parametre | 744B |
+| Aktif Parametre | 40B (MoE, 256 expert) |
+| Mimari | GlmMoeDsaForCausalLM (MoE + Sparse MLA / DSA) |
+| Pre-training | 28.5T token |
+| vLLM Parser | `--tool-call-parser glm47 --reasoning-parser glm45` |
+| GPU Gereksinimi | H100/H200+ (sm90+, A100 desteklenmiyor) |
+| MTP (Speculative) | Tool calling ile uyumsuz — kapalı tutun |
+
+### Kimi-K2.5 Bilgileri
+
+| Özellik | Değer |
+|---------|-------|
+| Thinking Mode | AKTIF (varsayılan, kapatmayın — model kalitesi düşer) |
+| Temperature | 1.0 (Moonshot resmi önerisi, thinking ON) |
+| vLLM Parser | `--tool-call-parser kimi_k2 --reasoning-parser kimi_k2` |
+| reasoning_effort | Desteklenmiyor (binary ON/OFF) |
+| Bilinen Sorun | Tool token leakage (vLLM PR #34955 bekliyor) |
 
 ### Rules Hiyerarşisi
 
@@ -40,7 +64,7 @@ Bu proje, **lokal LLM'lerin profesyonel yazılım geliştirme asistanı olarak k
 .continue/rules/
 ├── 00-core.md          # Temel protokol (alwaysApply)
 ├── 01-general.md       # Genel mühendislik (alwaysApply)
-├── 02-fpga.md          # VHDL/Verilog (glob: *.vhd, *.v)
+├── 02-fpga.md          # VHDL/Verilog (glob: *.vhd, *.v, *.sv)
 ├── 03-vitis.md         # Embedded C (glob: *.c, *.h)
 ├── 04-csharp.md        # C#/.NET (glob: *.cs, *.xaml)
 ├── 05-python.md        # Python (glob: *.py)
@@ -52,37 +76,33 @@ Bu proje, **lokal LLM'lerin profesyonel yazılım geliştirme asistanı olarak k
 
 ## 🔑 Temel Özellikler
 
-### 1. Tam Dosya Yazımı
-API tabanlı modeller kısmi diff'leri güvenilir uygulayamaz. Bu yapılandırma:
-- Her değişiklikte **dosyanın tamamını** yazar
-- `...` veya `// existing code` gibi kısaltmaları **yasaklar**
-- Apply-Model ile deterministik birleştirme sağlar
+### 1. Uzmanlık Modelleri
+Her alan için optimize edilmiş system message ve agent prompt:
+- **FPGA-RTL-Engineer**: FSM, sentez, timing, CDC, AXI, Vivado
+- **Embedded-C-Cpp-Vitis**: Zynq, BSP, DMA, ISR, cache
+- **CSharp-DotNet-Engineer**: async/await, MVVM, WPF, SOLID
+- **Python-Engineer**: PEP 8, type hints, pathlib, pytest
+- **Schematic-Engineer**: Devre şeması, blok diyagram, Excel, image_input
+- **Git-Expert**: Commit, branch, merge, rebase, conflict resolution
 
-### 2. Uzmanlık Modelleri
-Her alan için optimize edilmiş system message:
-- **FPGA-RTL-Engineer**: FSM, sentez, timing, Vivado
-- **Embedded-C-Cpp-Vitis**: Zynq, BSP, DMA, ISR
-- **CSharp-DotNet-Engineer**: async/await, MVVM, WPF
-- **Python-Engineer**: PEP 8, type hints, pathlib
-
-### 3. Testbench Ayrımı
+### 2. Testbench Ayrımı
 RTL dosyalarına testbench otomatik **eklenmez**:
 - Sadece `module.vhd` istenirse → sadece `module.vhd`
 - Testbench istenirse → ayrı `module_tb.vhd` dosyası
 
-### 4. Dokümantasyon Koruması
+### 3. Dokümantasyon Koruması
 Markdown dosyalarında mevcut içerik **silinmez**:
 - "Ekle" = mevcut + yeni
 - Changelog yeni giriş = en üste
 - Format (başlık, liste, tablo) korunur
 
-### 5. Tekrar Yasağı
-Model çıktısında tekrar önleme:
+### 4. Tekrar Yasağı ve Loop Önleme
 - Aynı cümle farklı kelimelerle **yasak**
-- Loop tespiti ve otomatik durdurma
-- ANALIZ → SONUÇ → KOD formatı
+- Dolgu kelimeleri yasak (Hmm, Let me think, Wait)
+- Adaptif düşünme: basit istek 3-5 adım, derin analiz 8-12 adım
+- Atomik çıktı: tüm değişiklikler tek yanıtta
 
-### 6. Error Recovery
+### 5. Error Recovery
 İşlem başarısız olursa:
 - Başarılı adımı koru
 - Alternatif strateji dene
@@ -93,7 +113,7 @@ Model çıktısında tekrar önleme:
 ## 📁 Dosya Yapısı
 
 ```
-continue-main/
+.
 ├── config.yaml              # Ana yapılandırma dosyası
 ├── .continue/
 │   └── rules/
@@ -115,16 +135,38 @@ continue-main/
 1. **Continue eklentisini** VS Code'a kurun
 2. Bu repository'yi klonlayın:
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/Seradorr/continue.git
    ```
 3. `config.yaml` içindeki API ayarlarını düzenleyin:
    ```yaml
    api_config: &api_config
      provider: openai
-     apiBase: <your-api-base>
-     apiKey: <your-api-key>
+     apiBase: "http://your-api-base:8000/v1"
+     apiKey: "your-api-key"
    ```
 4. `.continue/rules/` klasörünü VS Code workspace'inize kopyalayın
+
+### vLLM Sunucu Yapılandırması
+
+**GLM-5-FP8:**
+```bash
+vllm serve GLM-5-FP8 \
+  --tensor-parallel-size 8 \
+  --gpu-memory-utilization 0.85 \
+  --tool-call-parser glm47 \
+  --reasoning-parser glm45 \
+  --enable-auto-tool-choice
+# NOT: --speculative-config (MTP) tool calling ile uyumsuz, eklemeyin
+```
+
+**Kimi-K2.5:**
+```bash
+vllm serve Kimi-K2.5 \
+  --tool-call-parser kimi_k2 \
+  --reasoning-parser kimi_k2 \
+  --enable-auto-tool-choice
+# Thinking mode varsayılan AÇIK, kapatmayın
+```
 
 ---
 
@@ -134,222 +176,110 @@ continue-main/
 
 | Model | Temperature | Neden |
 |-------|-------------|-------|
-| GLM-4.7 (Tüm uzmanlıklar) | 0.3 | Loop önleme + yaratıcılık dengesi |
-| Apply-Model | 0.0 | Deterministik birleştirme |
+| GLM-5 (Tüm uzmanlıklar) | 0.7 | Z.ai resmi tool-calling önerisi |
+| Kimi-K2.5 (Thinking ON) | 1.0 | Moonshot resmi önerisi |
+| Quick-Engineer (Qwen3) | 0.5 | Hızlı, dengeli çıktı |
 | Rerank | 0.1 | Tutarlı sıralama |
 
-### vLLM Extra Parametreleri (Loop Önleme + Atomik Çıktı)
+### Sampling Parametreleri
+
+**GLM-5 (vLLM):**
 
 | Parametre | Değer | Açıklama |
 |-----------|-------|----------|
-| `repetition_penalty` | 1.1 | Hafif tekrar cezası |
-| `top_k` | 20 | Stabil çıktı |
-| `frequency_penalty` | 0.2 | Tekrar eden token'ları cezalandır |
+| `frequency_penalty` | 0.1 | Tekrar eden token'lara hafif ceza |
 | `presence_penalty` | 0.1 | Yeni token çeşitliliği |
-| `top_p` | 1.0 | Tüm tokenler dahil |
-| `truncate_prompt_tokens` | 98000 | Context overflow önleme (131K - 32K = 99K) |
+| `top_p` | 0.95 | Neredeyse tüm tokenler dahil |
+| `repetition_penalty` | 1.1 | Loop önleme |
+| `truncate_prompt_tokens` | 98000 | Context overflow önleme |
 
-> **Not:** `min_p` parametresi API tarafından desteklenmediği için kaldırıldı.
+**Kimi-K2.5:**
+
+| Parametre | Değer | Açıklama |
+|-----------|-------|----------|
+| `top_p` | 0.95 | Moonshot resmi önerisi |
+| `truncate_prompt_tokens` | 97000 | 131K - 32K = ~98K, güvenli 97K |
 
 ### Token Limitleri
 
-| Parametre | Değer | Açıklama |
-|-----------|-------|----------|
-| `contextLength` | 131072 | GLM-4.7 maksimum context |
-| `maxTokens` | 32768 | Çıktı limiti (32K) |
-| `truncate_prompt_tokens` | 98000 | Input 98K'yı aşarsa eski mesajları kes |
+| Model | contextLength | maxTokens | truncate |
+|-------|---------------|-----------|----------|
+| GLM-5-FP8 | 131072 | 32768 | 98000 |
+| Kimi-K2.5 | 131072 | 32768 | 97000 |
+| Qwen3-Next-80B | 262144 | 32768 | 229000 |
 
-> **✅ Context Overflow Koruması Aktif:**
-> - `truncate_prompt_tokens: 98000` ile input otomatik kesilir
-> - 98K input + 32K output = 130K < 131K context limit
-> - Session düşmesi önlenir, çok uzun konuşmalarda bile çalışır
-
-### Timeout Ayarları
-
-| Model | Timeout | Neden |
-|-------|---------|-------|
-| Advisor | 600s | Büyük proje analizi |
-| FPGA/Vitis/C#/Python/Docs | 400s | Orta karmaşıklık |
-| Kodlama-Uzmani | 300s | Hızlı kod üretimi |
-| Apply-Model | 900s | Büyük dosya birleştirme |
+> **Context Overflow Koruması:** `truncate_prompt_tokens` ile input otomatik kesilir, session düşmesi önlenir.
 
 ---
 
-## � Yaşanan Sorunlar ve Çözümler
+## 🐛 Yaşanan Sorunlar ve Çözümler
 
-### GLM-4.7 Sonsuz Düşünme Döngüsü (Infinite Thinking Loop)
+### GLM-4.7 → GLM-5 Geçişi
 
-**Sorun:** GLM-4.7 modeli thinking modunda sonsuz döngüye giriyordu. "Hmm, let me think..." gibi dolgu kelimeleri sürekli tekrar ediyordu.
+GLM-5 (744B/40B MoE) Z.ai tarafından yayınlandı. Önemli notlar:
+- vLLM v0.16+ gerekli
+- Parser isimleri geriye uyumlu: `glm47`, `glm45`
+- MTP (speculative decode) tool calling ile **uyumsuz** — kapalı tutun
+- H100/H200+ GPU gerekli (sm90+)
 
-**Araştırma Kaynakları:**
-- [Reddit r/LocalLLaMA](https://reddit.com/r/LocalLLaMA) - GLM model deneyimleri
-- [Unsloth GitHub Issues](https://github.com/unslothai/unsloth) - Fine-tuning sorunları
-- [Z.ai Community](https://z.ai) - GLM-4 optimizasyon tartışmaları
+### GLM Sonsuz Düşünme Döngüsü (Infinite Thinking Loop)
 
-**Topluluk Bulgular:**
-| Kullanıcı | Öneri | Sonuç |
-|-----------|-------|-------|
-| u/AfterAte | `repetition_penalty=1.0` (KAPALI) | ✅ Loop durdu |
-| u/PANIC_EXCEPTION | `temperature=0.2-0.3` | ✅ Stabil çıktı |
-| Unsloth docs | `min_p=0.01` (default 0.05 loop yapıyor) | ✅ Çeşitlilik arttı |
-| Z.ai forum | `top_k=20` + `top_p=1.0` | ✅ Deterministik ama flexible |
+**Sorun:** GLM modeli thinking modunda sonsuz döngüye giriyordu.
 
-**Çözüm (vLLM Backend için):**
-```yaml
-kodlama_extra: &kodlama_extra
-  repetition_penalty: 1.1   # Hafif tekrar cezası
-  top_k: 20                 # Stabil çıktı
-  frequency_penalty: 0.2    # Tekrar eden token cezası
-  presence_penalty: 0.1     # Yeni token çeşitliliği
-  top_p: 1.0
-  # min_p kaldırıldı - API desteklemiyor
-```
+**Çözüm:**
+- `repetition_penalty: 1.1` — loop önleme
+- `frequency_penalty: 0.1` — tekrar eden token cezası
+- Prompt kuralları: dolgu kelimeleri yasak, tekrar yasağı
+- Adaptif düşünme limitleri (basit: 3-5, derin: 8-12 adım)
 
-**Prompt Kuralları:**
-```
-THINKING KURALLARI (LOOP ONLEME):
-- Ayni fikri TEKRAR ETMA - bir kez soyle, sonuca gec
-- Dolgu kelimeleri KULLANMA (Hmm, Let me think, Wait, I see)
-- Cikmazda kalirsan DURDUR ve kullaniciya sor
-```
+### Kimi K2.5 Tool Token Leakage
 
-**Atomik Çıktı Kuralları (Incremental Edit Önleme):**
-```
-| YASAKLI İFADE | AÇIKLAMA |
-|---------------|----------|
-| "Şimdi" | Adım adım tetikleyici |
-| "Now let's" | Step-by-step trigger |
-| "Ardından" | Sequential trigger |
-| "Additionally" | Incremental trigger |
+**Sorun:** `<|tool_call_begin|> ... <|tool_call_end|>` gibi özel tokenler çıktıya sızıyor.
 
-Tek Yanıt Kuralı: Sonraki mesaj YOK. Tüm değişiklikler TEK yanıtta.
-```
+**Durum:**
+- PR #28543 (Kasım 2025, merged): Streaming mode sızıntısı düzeltildi
+- PR #34955 (Şubat 2026, açık): KimiK25ReasoningParser — thinking→tool geçişi
+- PR #34968 (Şubat 2026, açık): 8K buffer limiti kaldırma
 
----
+**Workaround:** vLLM'i en güncel sürüme güncelleyin. Thinking modu **kapatmayın** — model kalitesi düşer.
 
-### Kimi K2.5 Tool Token Sızıntısı (Tool Token Leakage)
+### Premature Close (Bağlantı Kopması)
 
-**Sorun:** Kimi K2.5 modeli tool call yaparken `<|tool▁calls▁begin|>` gibi özel tokenler çıktıya sızıyordu.
+**Sorun:** API bağlantısı erken kapanıyordu.
 
-**Araştırma Kaynakları:**
-- [vLLM GitHub Issues](https://github.com/vllm-project/vllm/issues)
-- [vLLM Pull Requests](https://github.com/vllm-project/vllm/pulls)
-
-**Bulunan Çözüm:**
-- **PR #28543** (Kasım 2025 - MERGED): `KimiK2ToolParser` state machine implementasyonu
-- Token leakage'ı önleyen düzgün parsing eklendi
-
-**Durum:** vLLM'i güncel versiyona yükseltmek gerekiyor. Şu an Kimi K2.5 yerine GLM-4.7 kullanılıyor.
-
----
-
-### maxTokens vs contextLength Karmaşası
-
-**Sorun:** `maxTokens` ve `contextLength` parametrelerinin farkı net değildi.
-
-**Açıklama:**
-| Parametre | Anlam | Örnek |
-|-----------|-------|-------|
-| `contextLength` | Modelin görebildiği TOPLAM token | 131K (GLM-4.7) |
-| `maxTokens` | Modelin ÜRETEBİLECEĞİ maksimum token | 32K |
-
-**Formül:** `contextLength = input_tokens + maxTokens`
-
-**Seçim:** 32K maxTokens = ~3000 satır kod kapasitesi. Loop önleme ile büyük dosya dengesi.
-
----
-
-### Apply Model Dokümantasyon Sorunu
-
-**Sorun:** Apply-Model doküman dosyalarında (*.md) düzgün çalışmıyordu. Markdown syntax'ını bozuyordu.
-
-**Çözüm:** Docs-Writer için Apply-Model kullanmak yerine **markdown code block** çıktısı:
-```markdown
-\`\`\`markdown
-# Doküman İçeriği
-Tam içerik buraya...
-\`\`\`
-```
-
-Kullanıcı kopyalayıp dosyaya yapıştırıyor. Bu yöntem daha güvenilir.
-
----
-
-### single_find_replace Güvenilirlik Sorunu
-
-**Sorun:** `single_find_replace` tool'u bazen yanlış yere yazıyordu veya hiç çalışmıyordu.
-
-**Çözüm:** `edit_existing_file` tercih edildi (TAM DOSYA yazımı). Kodlama-Uzmani prompt'undan `single_find_replace` kaldırıldı.
+**Sonuç:** Backend kaynaklı sorun olarak tespit edilip çözüldü.
 
 ---
 
 ## 📋 Versiyon Geçmişi
 
+### v7.0.0 (2026-02-24)
+- **BREAKING:** GLM-4.7-FP8 → **GLM-5-FP8** geçişi (744B/40B MoE, DSA)
+- **Kimi-K2.5 Context:** 262K → **128K** (sunucu konfigürasyonu)
+- **Kimi-K2.5 Thinking:** temperature=1.0 (Moonshot resmi), thinking AÇIK
+- **Kimi-K2.5 maxTokens:** 65536 → **32768**
+- **Yeni Model:** Schematic-Engineer (Kimi-K2.5, image_input, şematik/görsel okuma)
+- **Yeni Model:** Git-Expert (Kimi-K2.5, versiyon kontrol uzmanı)
+- **Rule Güncellemeleri:**
+  - 00-core.md: GLM-5 referansları, loop önleme referans sadeleştirme
+  - 01-general.md: Model seçim tablosu güncellendi
+  - 07-reasoning.md: GLM-5 ve Kimi-K2.5 referansları
+- **Güvenlik:** Kurumsal referanslar jenerikleştirildi
+- **Premature Close:** Çözüldü (backend kaynaklı)
+
+### v6.2.0 (2026-02-20)
+- Premature close debug parametreleri eklendi
+- Kimi-K2.5 thinking mode varsayılan AÇIK
+- Temperature optimizasyonu (thinking=1.0)
+- Request defaults anchor yapısı
+
 ### v4.4.0 (2026-02-05)
-- **Atomik Çıktı Protokolü** eklendi (incremental edit önleme)
-  - Yasaklı ifadeler: "Şimdi", "Now let's", "Ardından", "Additionally"
-  - Tek Yanıt Kuralı: Tüm değişiklikler tek yanıtta
-  - Stop tokens: `["Simdi", "Now let", "Ardindan", "Additionally"]`
-- **Parametre Güncellemesi**
-  - `repetition_penalty`: 1.0 → 1.1 (hafif tekrar cezası)
-  - `presence_penalty`: 0.0 → 0.1 (yeni token çeşitliliği)
-  - `frequency_penalty`: 0.0 → 0.2 (tekrar eden token cezası)
-  - `min_p` kaldırıldı (API desteklemiyor)
-- **00-core.md** Section 7B "Atomik Çıktı Zorunluluğu" eklendi
-- **07-reasoning.md** sampling parametreleri güncellendi
-- **config.yaml** tüm model system message'larına atomik çıktı kuralları eklendi
+- Atomik Çıktı Protokolü eklendi
+- Loop önleme parametreleri güncellendi
 
 ### v4.3.0 (2026-02-04)
-- `kodlama_params` kaldırıldı (kullanılmıyordu, kafa karıştırıyordu)
-- **00-core.md** ANALIZ/SONUÇ/KOD formatına dokümantasyon muafiyeti eklendi
-- README ve config.yaml model/timeout tutarlılığı sağlandı
-- General-Engineer referansları kaldırıldı (mevcut değil)
-
-### v4.2.0 (2026-02-03)
-- **BREAKING:** GLM-4.7 loop prevention parametreleri
-  - `repetition_penalty=1.0` (KAPALI)
-  - `min_p=0.01`, `top_k=20`
-- **THINKING KURALLARI** güncellendi
-  - "3 adım limiti" → "tekrar yasağı" (model zekasını kısıtlamaz)
-  - Dolgu kelimeleri listesi genişletildi
-- **Docs-Writer** Qwen3-30B → GLM-4.7-FP8 geçişi
-- **07-reasoning.md** loop önleme protokolü eklendi
-- **06-documentation.md** markdown code block yöntemi
-
-### v4.1.0 (2026-02-02)
-- maxTokens 65K → 32K (loop önleme dengesi)
-- single_find_replace Kodlama-Uzmani'dan kaldırıldı
-- Git history temizlendi (orphan branch)
-
-### v3.0.3 (2026-02-02)
-- Temperature optimizasyonu (GLM-4.7 → 0.15)
-- K2.5 büyük proje analizi eklendi
-- Output format kuralları (ANALIZ-SONUÇ-KOD)
-- Error recovery protokolü
-- maxTokens 32K'ya optimize edildi
-
-### v3.0.2 (2026-02-01)
-- Tekrar yasağı (TEKRAR YASAGI) eklendi
-- Vitis output format kuralları
-
-### v3.0.1 (2026-02-01)
-- Apply model silme operasyonu desteği
-- [DELETE], [REMOVE], [SİL] markers
-
-### v3.0.0 (2026-01-26)
-- Tam yeniden yapılandırma
-- Rules hiyerarşisi oluşturuldu
-- Uzmanlık modelleri tanımlandı
-
----
-
-## 🤝 Katkıda Bulunma
-
-1. Fork edin
-2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Değişikliklerinizi commit edin (`git commit -m 'Add amazing feature'`)
-4. Branch'i push edin (`git push origin feature/amazing-feature`)
-5. Pull Request açın
+- İlk açık kaynak yapısı
+- Rules hiyerarşisi, 8 rule dosyası
 
 ---
 
@@ -362,4 +292,7 @@ Bu proje MIT lisansı altında sunulmaktadır.
 ## 🙏 Teşekkürler
 
 - [Continue](https://continue.dev) - VS Code AI asistan eklentisi
-- Lokal LLM toplulukları
+- [Z.ai](https://z.ai) - GLM-5 modeli
+- [Moonshot AI](https://github.com/MoonshotAI) - Kimi-K2.5 modeli
+- [vLLM](https://github.com/vllm-project/vllm) - Inference engine
+- Lokal LLM toplulukları (Reddit r/LocalLLaMA, GitHub)
