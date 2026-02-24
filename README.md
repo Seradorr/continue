@@ -260,8 +260,12 @@ GLM-5 (744B/40B MoE) Z.ai tarafından yayınlandı. Önemli notlar:
 - **Kimi-K2.5 maxTokens:** 65536 → **32768**
 - **Yeni Model:** Schematic-Engineer (Kimi-K2.5, image_input, şematik/görsel okuma)
 - **Yeni Model:** Git-Expert (Kimi-K2.5, versiyon kontrol uzmanı)
+- **requestOptions:** Global requestOptions restore (caBundlePath, timeout, retries, retryDelay, verifySsl: true)
+- **frequency_penalty:** 0.2 restore (loop önleme için orijinal değer)
+- **Prompt Cleanup:** Model adı ve context boyutu referansları system prompt'lardan kaldırıldı
+- **reasoning_effort anchor:** Kaldırıldı (kullanılmıyor, OpenAI o-serisi'ne özel)
 - **Rule Güncellemeleri:**
-  - 00-core.md: GLM-5 referansları, loop önleme referans sadeleştirme
+  - 00-core.md: GLM-5 referansları, 07-reasoning.md referansı kaldırıldı
   - 01-general.md: Model seçim tablosu güncellendi
   - 07-reasoning.md: GLM-5 ve Kimi-K2.5 referansları
 - **Güvenlik:** Kurumsal referanslar jenerikleştirildi

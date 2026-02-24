@@ -210,8 +210,6 @@ Son cumleler ayni fikri tekrarliyorsa:
 | Dolgu kelimesi YASAK | "Hmm", "Let me think", "Wait" kullanma |
 | Ciktiya gecis | Yeni bilgi uretmiyorsa dusunmeyi bitirip cevapla |
 
-> Detayli akil yurutme protokolu ve kalite kontrol listeleri icin: `07-reasoning.md`
-
 ---
 
 ## 10. HATA DUZELTME VE RECOVERY
