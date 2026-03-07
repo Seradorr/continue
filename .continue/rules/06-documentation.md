@@ -3,7 +3,7 @@ name: Documentation Rules
 description: |
   Markdown, README ve teknik dokumantasyon dosyalari icin
   koruma, guncelleme ve format kurallari.
-  K2-Docs modeli agent modunda dokumantasyon dosyalarini duzenler.
+  Dokumantasyon uzman modeli bu dosyalari agent modunda duzenler.
 globs:
   - "**/*.md"
   - "**/README*"
@@ -17,153 +17,73 @@ alwaysApply: false
 # DOKUMANTASYON KURALLARI
 
 Bu kurallar tum dokumantasyon dosyalari icin gecerlidir.
-K2-Docs modeli agent modunda calısır ve dosyalari dogrudan duzenleyebilir.
+Dokumantasyon uzman modeli agent modunda calisir ve dosyalari dogrudan duzenleyebilir.
 
 ---
 
 ## 1. ICERIK KORUMA
 
-> ⚠️ **TEMEL ILKE**: Kullanici ACIKCA istemedikce mevcut icerigi silme.
-
-### Islem Kurallari
+Temel ilke: Kullanici acikca istemedikce mevcut icerigi silme.
 
 | ISTEK | EYLEM |
-|-------|-------|
-| "Ekle" | Mevcut + yeni = sonuc (silme yok) |
+|------|-------|
+| "Ekle" | Mevcut + yeni = sonuc |
 | "Guncelle" | Sadece belirtilen kisim degisir |
-| "Sil" / "Kaldir" | SADECE belirtilen kisim silinir |
+| "Sil" / "Kaldir" | Sadece belirtilen kisim silinir |
 | "Yeniden yaz" | Belirtilen bolum tamamen degisir |
 
-### Silme Izni
-
-```
-Kullanici su ifadeleri kullanirsa SILME YAPILABILIR:
-- "X bolumunu sil"
-- "X paragrafini kaldir"
-- "X kismindan kurtul"
-- "X'i cikar"
-
-Bu durumda:
-1. Sadece X silinir
-2. Geri kalan TAMAMEN korunur
-3. Cikti = (mevcut - X)
-```
-
-### Silme Icin EXPLICIT MARKER (ZORUNLU)
-
-```
-[DELETE]
-<silinecek satirlarin tamami>
-[/DELETE]
-```
-
-Belirsiz isteklerde ("temizle", "sadelestir", "kisa tut") silme YAPMA.
+Belirsiz taleplerde silme yapma.
 
 ### Guncelleme Akisi
 
-```
-1. DOSYANIN TAMAMINI oku
-        ↓
-2. Mevcut icerigi HAFIZADA tut
-        ↓
-3. Istenen degisikligi HAFIZADA uygula
-        ↓
-4. TAMAMINI (eski + yeni) yaz
+```text
+1. Dosyanin tamamini oku
+2. Mevcut yapiyi koru
+3. Istenen degisikligi hedefli uygula
+4. Geri kalan icerigi bozma
 ```
 
 ---
 
-## 2. CHANGELOG / DEGISIKLIK TAKIBI
+## 2. CHANGELOG KURALI
 
-### Yeni Giris Ekleme
-
-```markdown
-# Changelog
-
-## [1.2.0] - 2026-01-26    ← YENI GIRIS EN USTE
-### Eklenenler
-- Yeni ozellik
-
-## [1.1.0] - 2026-01-15    ← ESKI GIRISLER KORUNUR
-### Eklenenler
-- Onceki ozellik
-```
-
-### Kurallar
-
-- Yeni giris = En uste (kronolojik ters sira)
-- Eski girisler = ASLA silinmez
-- Format = Mevcut formata uy
-- Tarih = ISO format (YYYY-MM-DD)
+- Yeni girisler en uste eklenir
+- Eski girisler korunur
+- Mevcut format neyse ona uyulur
+- Tarih formati ISO olmalidir: `YYYY-MM-DD`
 
 ---
 
 ## 3. YAPI KORUMA
 
-### Korunmasi Gerekenler
+Korunmasi gerekenler:
+- Baslik hiyerarsisi
+- Liste yapisi
+- Tablolar
+- Kod bloklari
+- Linkler
+- Mantikli bos satirlar
 
-| ELEMENT | ORNEK |
-|---------|-------|
-| Baslik hiyerarsisi | # ## ### |
-| Listeler | - veya 1. 2. 3. |
-| Tablolar | \| Header \| |
-| Kod bloklari | \`\`\`lang |
-| Linkler | [text](url) |
-| Bos satirlar | Paragraf ayirici |
-| Girintiler | Liste alt maddeleri |
-
-### Format Degistirme YASAK
-
-```
-YANLIS: Liste → Paragraf donusumu
-YANLIS: Tablo → Liste donusumu
-YANLIS: Baslik seviyesi degistirme (# → ##)
-```
+Yasak:
+- Listeyi paragrafa cevirmek
+- Tabloyu bozmak
+- Baslik seviyesini gereksiz degistirmek
 
 ---
 
 ## 4. ASLA YAPILMAYACAKLAR
 
 | YASAK | ACIKLAMA |
-|-------|----------|
-| "Temizleme" | Icerik silme adiyla |
-| "Sadeleştirme" | Kisaltma adiyla silme |
-| "Gereksiz cikarma" | Kendi kararina gore silme |
-| "Duzenleme" | Format degistirerek bozma |
-| "Birlestirme" | Bolumleri birlestirerek kaybetme |
+|------|----------|
+| "Temizleme" bahanesiyle silme | Icerik kaybi dogurur |
+| "Sadelestirme" diye keyfi kisaltma | Bilgi kaybi yaratir |
+| Format bozma | Mevcut yapinin tutarliligini kirar |
+| Placeholder birakma | Eksik ve kullanisiz cikti uretir |
 
 ---
 
-## 5. ORNEK SENARYOLAR
+## 5. PROAKTIF DOKUMAN KONTROLU
 
-### Senaryo 1: Changelog'a Ekleme
-
-**Istek**: "Degisiklik takibi.md'ye v2.0 guncellemesini ekle"
-
-**Dogru Yaklasim**:
-1. Dosyayi oku
-2. Mevcut tum icerigi koru
-3. Yeni v2.0 girisini EN USTE ekle
-4. Tum dosyayi (eski + yeni) yaz
-
-### Senaryo 2: README Guncelleme
-
-**Istek**: "README'deki kurulum adimlarini guncelle"
-
-**Dogru Yaklasim**:
-1. Dosyayi oku
-2. Sadece "Kurulum" bolumunu degistir
-3. Diger tum bolumler AYNEN kalir
-4. Tum dosyayi yaz
-
----
-
-## 6. CIKTI FORMATI
-
-```markdown
-[Dosya adi belirtilir]
-
-[DOSYANIN TAMAMI - tum mevcut icerik + yeni icerikler]
-
-[Hicbir kisaltma yok: "..." veya "existing content" YASAK]
-```
+- Istenen guncelleme bittikten sonra, varsa en fazla 3 somut dokuman iyilestirme onerisi sun
+- Oneriler mevcut yapinin eksikligi veya belirsizligi ile iliskili olmali
+- Uydurma eksik listesi olusturma

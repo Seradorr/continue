@@ -249,8 +249,11 @@ create_clock -name axi_clk -period 8.0 [get_ports clk_125mhz]
 # Clock domain arasi
 set_clock_groups -asynchronous -group [get_clocks sys_clk] -group [get_clocks axi_clk]
 
-# False path (CDC synchronizer)
-set_false_path -to [get_cells -hier -filter {NAME =~ *sync_ff1*}]
+# CDC synchronizer register'larini ASYNC_REG olarak isaretle
+set_property ASYNC_REG TRUE [get_cells -hier -regexp {.*sync_ff[12].*}]
+
+# False path'i ilk senkronizer kademesinin D pinine hedefli uygula
+set_false_path -to [get_pins -hier -regexp {.*sync_ff1.*/D}]
 
 # Multicycle path (ornek: 2 cycle)
 set_multicycle_path 2 -setup -from [get_cells src_reg] -to [get_cells dst_reg]

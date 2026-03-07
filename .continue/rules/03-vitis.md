@@ -33,7 +33,7 @@ Bu kurallar Xilinx Vitis IDE, bare-metal C ve BSP gelistirme icin gecerlidir.
 |-----|--------|-------|
 | Fonksiyon | snake_case | init_dma, read_register |
 | Degisken | snake_case | data_buffer, byte_count |
-| Macro/Define | UPPER_SNAKE_CASE | MAX_BUFFER_SIZE |
+| Macro | UPPER_SNAKE_CASE | MAX_BUFFER_SIZE |
 | Struct | PascalCase veya _t | DmaConfig, dma_config_t |
 | Global | g_ prefix | g_dma_instance |
 | Static | s_ prefix | s_init_done |
@@ -45,27 +45,23 @@ Bu kurallar Xilinx Vitis IDE, bare-metal C ve BSP gelistirme icin gecerlidir.
 #ifndef PROJECT_MODULE_H
 #define PROJECT_MODULE_H
 
-// Content
+/* Content */
 
 #endif /* PROJECT_MODULE_H */
 ```
 
-### Fonksiyon Dokumantasyonu
+### Temel Kurallar
 
-```c
-/**
- * @brief Kisa aciklama.
- * @param param1 Parametre aciklamasi.
- * @return XST_SUCCESS veya XST_FAILURE.
- */
-int function_name(int param1);
-```
+- Her public fonksiyon hata durumunda anlamli status donmeli
+- Magic number yerine macro veya sabit kullan
+- Register-level kodda volatile ve alignment ihtiyaclarini acikca dusun
+- ISR icinde uzun is ve heap kullanimindan kacin
 
 ---
 
 ## 2. XILINX DRIVER PATTERN
 
-### Standard Initialization
+### Standart Initialization
 
 ```c
 #include "xgpio.h"
@@ -82,8 +78,7 @@ int init_gpio(void)
         return XST_FAILURE;
     }
 
-    if (XGpio_CfgInitialize(&gpio_instance, config,
-                            config->BaseAddress) != XST_SUCCESS) {
+    if (XGpio_CfgInitialize(&gpio_instance, config, config->BaseAddress) != XST_SUCCESS) {
         return XST_FAILURE;
     }
 
@@ -105,10 +100,18 @@ int setup_interrupts(void)
     XScuGic_Config *config;
 
     config = XScuGic_LookupConfig(XPAR_SCUGIC_SINGLE_DEVICE_ID);
-    XScuGic_CfgInitialize(&gic_instance, config, config->CpuBaseAddress);
+    if (config == NULL) {
+        return XST_FAILURE;
+    }
 
-    Xil_ExceptionRegisterHandler(XIL_EXCEPTION_ID_INT,
-        (Xil_ExceptionHandler)XScuGic_InterruptHandler, &gic_instance);
+    if (XScuGic_CfgInitialize(&gic_instance, config, config->CpuBaseAddress) != XST_SUCCESS) {
+        return XST_FAILURE;
+    }
+
+    Xil_ExceptionRegisterHandler(
+        XIL_EXCEPTION_ID_INT,
+        (Xil_ExceptionHandler)XScuGic_InterruptHandler,
+        &gic_instance);
     Xil_ExceptionEnable();
 
     return XST_SUCCESS;
@@ -116,10 +119,7 @@ int setup_interrupts(void)
 
 int connect_interrupt(u32 intr_id, Xil_InterruptHandler handler, void *callback)
 {
-    int status;
-
-    status = XScuGic_Connect(&gic_instance, intr_id, handler, callback);
-    if (status != XST_SUCCESS) {
+    if (XScuGic_Connect(&gic_instance, intr_id, handler, callback) != XST_SUCCESS) {
         return XST_FAILURE;
     }
 
@@ -130,7 +130,7 @@ int connect_interrupt(u32 intr_id, Xil_InterruptHandler handler, void *callback)
 
 ---
 
-## 3. DMA TRANSFER PATTERN'LERI
+## 3. DMA PATTERN'LERI
 
 ### Simple DMA Transfer
 
@@ -144,37 +144,46 @@ int init_dma(void)
     XAxiDma_Config *config;
 
     config = XAxiDma_LookupConfig(XPAR_AXIDMA_0_DEVICE_ID);
-    if (config == NULL) return XST_FAILURE;
-
-    if (XAxiDma_CfgInitialize(&dma_instance, config) != XST_SUCCESS)
+    if (config == NULL) {
         return XST_FAILURE;
+    }
 
-    XAxiDma_IntrDisable(&dma_instance, XAXIDMA_IRQ_ALL_MASK,
-                        XAXIDMA_DEVICE_TO_DMA);
-    XAxiDma_IntrDisable(&dma_instance, XAXIDMA_IRQ_ALL_MASK,
-                        XAXIDMA_DMA_TO_DEVICE);
+    if (XAxiDma_CfgInitialize(&dma_instance, config) != XST_SUCCESS) {
+        return XST_FAILURE;
+    }
+
+    XAxiDma_IntrDisable(&dma_instance, XAXIDMA_IRQ_ALL_MASK, XAXIDMA_DEVICE_TO_DMA);
+    XAxiDma_IntrDisable(&dma_instance, XAXIDMA_IRQ_ALL_MASK, XAXIDMA_DMA_TO_DEVICE);
 
     return XST_SUCCESS;
 }
 
 int dma_transfer(u8 *tx_buf, u8 *rx_buf, u32 len)
 {
-    /* TX: CPU yazdi, DMA okuyacak → flush */
+    /* TX: CPU yazdi, DMA okuyacak */
     Xil_DCacheFlushRange((UINTPTR)tx_buf, len);
 
-    /* RX: DMA yazacak, CPU okuyacak → invalidate */
+    /* RX: stale line kalmamasi icin transferden once invalidate */
     Xil_DCacheInvalidateRange((UINTPTR)rx_buf, len);
 
-    /* Transfer baslat */
-    XAxiDma_SimpleTransfer(&dma_instance, (UINTPTR)rx_buf, len,
-                           XAXIDMA_DEVICE_TO_DMA);
-    XAxiDma_SimpleTransfer(&dma_instance, (UINTPTR)tx_buf, len,
-                           XAXIDMA_DMA_TO_DEVICE);
+    if (XAxiDma_SimpleTransfer(&dma_instance, (UINTPTR)rx_buf, len, XAXIDMA_DEVICE_TO_DMA)
+        != XST_SUCCESS) {
+        return XST_FAILURE;
+    }
 
-    /* Tamamlanmayi bekle */
-    while (XAxiDma_Busy(&dma_instance, XAXIDMA_DEVICE_TO_DMA));
-    while (XAxiDma_Busy(&dma_instance, XAXIDMA_DMA_TO_DEVICE));
+    if (XAxiDma_SimpleTransfer(&dma_instance, (UINTPTR)tx_buf, len, XAXIDMA_DMA_TO_DEVICE)
+        != XST_SUCCESS) {
+        return XST_FAILURE;
+    }
 
+    while (XAxiDma_Busy(&dma_instance, XAXIDMA_DEVICE_TO_DMA)) {
+    }
+
+    while (XAxiDma_Busy(&dma_instance, XAXIDMA_DMA_TO_DEVICE)) {
+    }
+
+    /* DMA tamamlandiktan sonra CPU okumadan once tekrar invalidate et */
+    Xil_DCacheInvalidateRange((UINTPTR)rx_buf, len);
     return XST_SUCCESS;
 }
 ```
@@ -186,40 +195,28 @@ int dma_transfer(u8 *tx_buf, u8 *rx_buf, u32 len)
 
 static u8 buf_a[BUF_SIZE] __attribute__((aligned(32)));
 static u8 buf_b[BUF_SIZE] __attribute__((aligned(32)));
-static volatile int active_buf = 0;  /* 0 = A, 1 = B */
+static volatile int active_buf = 0;
 
 void dma_rx_isr(void *callback)
 {
     XAxiDma *dma = (XAxiDma *)callback;
-
-    /* Interrupt temizle */
     u32 irq_status = XAxiDma_IntrGetIrq(dma, XAXIDMA_DEVICE_TO_DMA);
-    XAxiDma_IntrAckIrq(dma, irq_status, XAXIDMA_DEVICE_TO_DMA);
 
-    /* Buffer swap */
+    XAxiDma_IntrAckIrq(dma, irq_status, XAXIDMA_DEVICE_TO_DMA);
     active_buf ^= 1;
 
-    /* Sonraki transfer'i hemen baslat */
     u8 *next_buf = (active_buf == 0) ? buf_a : buf_b;
     Xil_DCacheInvalidateRange((UINTPTR)next_buf, BUF_SIZE);
-    XAxiDma_SimpleTransfer(dma, (UINTPTR)next_buf, BUF_SIZE,
-                           XAXIDMA_DEVICE_TO_DMA);
+    XAxiDma_SimpleTransfer(dma, (UINTPTR)next_buf, BUF_SIZE, XAXIDMA_DEVICE_TO_DMA);
 }
 ```
 
-### Scatter-Gather DMA
+### DMA Kurallari
 
-```c
-/* SG DMA icin:
- * 1. BD (Buffer Descriptor) ring olustur
- * 2. Her BD'ye buffer adresi ve boyutu ata
- * 3. BD ring'i DMA'ya bagla
- * 4. Transfer baslat
- *
- * Avantaj: CPU mudahalesi olmadan coklu transfer
- * Kullanim: Video streaming, buyuk veri blokları
- */
-```
+- RX buffer'i CPU okumadan once invalidate et
+- TX buffer'i DMA okumadan once flush et
+- Buffer'lari cache line alignment ile ayarla
+- Timeout, error bit ve reset path'lerini goz ardi etme
 
 ---
 
@@ -229,143 +226,109 @@ void dma_rx_isr(void *callback)
 
 | PORT | BANT GENISLIGI | KULLANIM |
 |------|----------------|----------|
-| AXI GP (M_AXI_GP) | Dusuk (32-bit) | Register erisimi, kontrol |
-| AXI HP (S_AXI_HP) | Yuksek (64-bit) | DMA, video, buyuk veri |
-| AXI ACP | Yuksek + cache coherent | Cache tutarli veri paylasimi |
-| EMIO | GPIO/SPI/I2C/UART | Dusuk hiz periferal |
+| AXI GP | Dusuk | Register erisimi, kontrol |
+| AXI HP | Yuksek | DMA, video, buyuk veri |
+| AXI ACP | Yuksek + coherent | Cache tutarli veri paylasimi |
+| EMIO | Dusuk hiz | GPIO, SPI, I2C, UART |
 
 ### Interrupt Mapping
 
 ```c
-/* PL interrupt'lari PS'e baglamak icin:
- * IRQ_F2P[15:0] → GIC SPI interrupt ID 61-68, 84-91
- *
- * Vivado'da: PL → AXI Interrupt Controller veya direkt IRQ_F2P
- * C'de: XScuGic_Connect ile GIC'e bagla
+/* Interrupt ID'leri tasarima ve SoC ailesine gore degisir.
+ * Sabit ID ezberleme; BSP tarafinda uretilen macro'lari referans al.
  */
-#define PL_INTR_ID  61  /* IRQ_F2P[0] */
+#define PL_INTR_ID  XPAR_FABRIC_AXI_GPIO_0_IP2INTC_IRPT_INTR
 ```
+
+Kurallar:
+- xparameters.h ve generated BSP macro'larini birincil referans kabul et
+- Interrupt mapping'i tasarim bazli dogrula
+- Shared interrupt yapilarinda ack sirasi ve source temizligini kontrol et
 
 ---
 
 ## 5. BOOT SEQUENCE
 
-```
-FSBL (First Stage Boot Loader)
-  → PS initialization (MIO, DDR, clock)
-  → PL bitstream yukleme
-  → U-Boot veya Application yukleme
-
-FSBL → U-Boot → Linux (Linux akisi)
-FSBL → Application (Bare-metal akisi)
+```text
+FSBL
+  -> PS init
+  -> DDR ve clock init
+  -> Bitstream yukleme
+  -> U-Boot veya bare-metal application
 ```
 
-### Boot Hatalari
-
-| HATA | OLASI NEDEN |
-|------|-------------|
-| FSBL basilamiyor | Boot mode pinleri yanlis |
-| PL yuklenmiyor | Bitstream boyutu / CRC hatasi |
-| App crash | Stack overflow, DDR init hatasi |
-| Hang at main | Interrupt/exception yapilandirmasi eksik |
+Boot hatalarinda kontrol et:
+- Boot mode pinleri
+- DDR ve clock init
+- Bitstream boyutu ve yukleme akisi
+- Stack, heap ve exception yapilandirmasi
 
 ---
 
-## 6. LINKER SCRIPT (lscript.ld)
+## 6. LINKER SCRIPT
 
-### Section Yerlestirme
-
-```
+```ld
 MEMORY {
     ps7_ddr_0 : ORIGIN = 0x00100000, LENGTH = 0x1FF00000
     ps7_ram_0 : ORIGIN = 0x00000000, LENGTH = 0x00030000
 }
 
-/* Heap ve Stack boyutlandirma */
-_HEAP_SIZE  = 0x10000;   /* 64 KB - buyuk buffer'lar icin artir */
-_STACK_SIZE = 0x8000;    /* 32 KB - derin recursion varsa artir */
+_HEAP_SIZE  = 0x10000;
+_STACK_SIZE = 0x8000;
 ```
 
-### Kurallari
-
-- DMA buffer'lari cache line aligned olmali (32 byte)
-- Stack/heap boyutunu projeye gore ayarla
-- OCM (On-Chip Memory) kritik ISR verileri icin kullan
-- DDR adres araliklari FSBL ile uyumlu olmali
+Kurallar:
+- DMA buffer'lari alignment gereksinimine uygun olmali
+- ISR veya kritik veri gerekliyse OCM kullanimi dusunulmeli
+- Heap ve stack boyutlari gercek kullanim senaryosuna gore ayarlanmalı
 
 ---
 
 ## 7. DEBUG STRATEJILERI
 
-### JTAG Debug
-
-- Breakpoint ve watchpoint kullan
-- Register penceresi ile periferal durumu kontrol et
-- Memory goruntuleme ile buffer iceriklerini incele
-
-### UART Debug Printf
+### UART Debug
 
 ```c
 #include "xil_printf.h"
 
-/* Hafif print (printf yerine) */
 xil_printf("DMA status: 0x%08x\r\n", XAxiDma_ReadReg(base, offset));
+```
 
-/* Register dump */
+### Register Dump
+
+```c
 void dump_regs(u32 base, int count)
 {
     for (int i = 0; i < count; i++) {
-        xil_printf("REG[0x%02x] = 0x%08x\r\n",
-                   i * 4, Xil_In32(base + i * 4));
+        xil_printf("REG[0x%02x] = 0x%08x\r\n", i * 4, Xil_In32(base + i * 4));
     }
 }
 ```
 
-### Semihosting
-
-- printf ciktisini JTAG uzerinden host PC'ye yonlendirir
-- Debug build'de aktif, release'de KAPALI tutmali
-- Performance etkisi yuksek — production'da KULLANMA
+Kurallar:
+- JTAG, UART ve memory window birlikte dusunulmeli
+- Reproduce edilebilir hata durumunda once register ve interrupt state al
+- Debug print'i production yoluna yerlestirme
 
 ---
 
 ## 8. ANTI-PATTERNS
 
-### ISR Icinde Uzun Islem
+### ISR Icinde Uzun Is
 
 ```c
-// YANLIS
-void my_isr(void *callback)
-{
-    process_large_buffer();  // YANLIS!
-}
-
-// DOGRU: Flag kullan
 volatile int data_ready = 0;
 
 void my_isr(void *callback)
 {
     data_ready = 1;
 }
-
-void main_loop(void)
-{
-    if (data_ready) {
-        data_ready = 0;
-        process_large_buffer();
-    }
-}
 ```
 
 ### Hata Kontrolsuz Cagri
 
 ```c
-// YANLIS
-XGpio_Initialize(&gpio, DEVICE_ID);
-
-// DOGRU
 if (XGpio_Initialize(&gpio, DEVICE_ID) != XST_SUCCESS) {
-    xil_printf("GPIO init failed\r\n");
     return XST_FAILURE;
 }
 ```
@@ -373,97 +336,22 @@ if (XGpio_Initialize(&gpio, DEVICE_ID) != XST_SUCCESS) {
 ### Magic Number
 
 ```c
-// YANLIS
-Xil_Out32(0x43C00000, 0x1F);
-
-// DOGRU
 #define MY_IP_BASE  XPAR_MY_IP_0_BASEADDR
 #define REG_CTRL    0x00
 #define CTRL_EN     0x1F
-
-Xil_Out32(MY_IP_BASE + REG_CTRL, CTRL_EN);
 ```
 
-### Volatile Eksikligi
+### Bare-Metal malloc
 
-```c
-// YANLIS (derleyici optimize edebilir)
-int flag = 0;
-void isr(void *cb) { flag = 1; }
-void main(void) { while (!flag); }
-
-// DOGRU
-volatile int flag = 0;
-```
-
-### Bare-metal malloc
-
-```c
-// YANLIS (heap fragmentation riski)
-char *buf = malloc(1024);
-
-// DOGRU (statik allocation)
-static char buf[1024] __attribute__((aligned(32)));
-```
+- Heap fragmentasyonu ve kontrol zorlugu nedeniyle varsayilan tercih olmasin
+- Uzun omurlu buffer ve DMA alanlarinda static allocation kullan
 
 ---
 
-## 9. CACHE ISLEMLERI
+## 9. MULTI-CORE VE PAYLASILAN BELLEK
 
 ```c
-/* TX: CPU yazdi, DMA okuyacak → FLUSH */
-Xil_DCacheFlushRange((UINTPTR)tx_buf, len);
-
-/* RX: DMA yazacak, CPU okuyacak → INVALIDATE */
-Xil_DCacheInvalidateRange((UINTPTR)rx_buf, len);
-
-/* KURAL: Buffer'lar cache line aligned olmali (32 byte) */
-static u8 buf[SIZE] __attribute__((aligned(32)));
-```
-
----
-
-## 10. STRUCT KULLANIMI
-
-### Register Map
-
-```c
-typedef struct {
-    volatile u32 control;   /* 0x00 */
-    volatile u32 status;    /* 0x04 */
-    volatile u32 data_in;   /* 0x08 */
-    volatile u32 data_out;  /* 0x0C */
-} MyIpRegs;
-
-#define MY_IP ((MyIpRegs *)XPAR_MY_IP_0_BASEADDR)
-
-/* Kullanim */
-MY_IP->control = 0x01;
-u32 status = MY_IP->status;
-```
-
----
-
-## 11. MULTI-CORE (AMP)
-
-### Asymmetric Multi-Processing
-
-```
-Zynq-7000: Cortex-A9 x2
-Zynq UltraScale+: Cortex-A53 x4 + Cortex-R5 x2
-
-AMP Pattern:
-- CPU0: Ana uygulama (bare-metal veya Linux)
-- CPU1: Gercek zamanli islem (bare-metal)
-- Paylasilan bellek ile haberlesme (OCM veya DDR region)
-- IPI (Inter-Processor Interrupt) ile senkronizasyon
-```
-
-### Paylasilan Bellek
-
-```c
-/* Ortak bellek adresi (linker script'te tanimli) */
-#define SHARED_MEM_BASE  0xFFFF0000  /* OCM */
+#define SHARED_MEM_BASE  0xFFFF0000
 
 typedef struct {
     volatile u32 flag;
@@ -473,14 +361,19 @@ typedef struct {
 #define SHARED ((SharedMem *)SHARED_MEM_BASE)
 ```
 
+Kurallar:
+- Shared memory protokolunu netlestir
+- Cache coherency ihtiyacini acikca dusun
+- IPI ve polling stratejilerini karistirma
+
 ---
 
-## 12. KRITIK DOSYALAR
+## 10. KRITIK DOSYALAR
 
-Bu dosyalarda degisiklik yapmadan once **ONAY ISTE**:
+Bu dosyalarda degisiklik yapmadan once onay iste:
 
-- `lscript.ld` — Linker script
+- `lscript.ld`
 - FSBL kaynak dosyalari
 - ISR fonksiyonlari
 - `Makefile`, `CMakeLists.txt`
-- `xparameters.h` (otomatik uretilir — MANUAL DEGISTIRME!)
+- `xparameters.h` (otomatik uretilir, manuel degistirme)

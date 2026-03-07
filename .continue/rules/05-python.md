@@ -120,7 +120,7 @@ class SensorConfig:
 ### Pydantic Model
 
 ```python
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 class DeviceConfig(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
@@ -128,7 +128,8 @@ class DeviceConfig(BaseModel):
     port: int = Field(default=8080, ge=1, le=65535)
     timeout: float = 30.0
 
-    @validator("ip_address")
+    @field_validator("ip_address")
+    @classmethod
     def validate_ip(cls, v: str) -> str:
         parts = v.split(".")
         if len(parts) != 4:

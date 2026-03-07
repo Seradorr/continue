@@ -14,29 +14,29 @@ Bu kurallar agent modunda tool kullanimini standardize eder.
 
 ## 1. TOOL SECIM KARAR AGACI
 
-Yeni dosya icin create_new_file kullan.
+Yeni dosya icin create_new_file kullan.  
 Buyuk dosyalarda once grep_search ile hedef bolgeyi daralt.
 
-```
+```text
 ISTEK TIPI NEDIR?
 
-|- YENI DOSYA olusturma
+|- YENI DOSYA
 |  -> create_new_file
 |
-|- MEVCUT DOSYA degisikligi
-|  -> Uygun edit tool ile degisikligi uygula
-|  -> Birden fazla bagimsiz degisiklik: AYRI cagrilar
-|  -> Bagimsiz degisiklikler: PARALEL cagri
+|- MEVCUT DOSYA DEGISIKLIGI
+|  -> single_find_and_replace ile degisikligi uygula
+|  -> Birden fazla bagimsiz degisiklik varsa ayri cagrilar yap
+|  -> Bagimsiz degisikliklerde paralel calisma dusun
 |
-|- ANALIZ / DEBUG istegi
+|- ANALIZ veya DEBUG
 |  -> read_file + grep_search ile bilgi topla
-|  -> Sonucu kullaniciya raporla
+|  -> Sonucu raporla
 |
-|- BUILD / TEST istegi
+|- BUILD veya TEST
 |  -> run_terminal_command ile calistir
 |  -> Ciktiyi analiz et
 |
-'- ARAMA istegi
+'- ARAMA
    -> grep_search veya repo-map
 ```
 
@@ -46,7 +46,7 @@ ISTEK TIPI NEDIR?
 
 ### Standart Degisiklik Akisi
 
-```
+```text
 1. ANLAMA
    -> read_file ile mevcut kodu oku
    -> Yapisi ve bagimliklarini anla
@@ -54,59 +54,45 @@ ISTEK TIPI NEDIR?
 2. PLANLAMA
    -> Degisiklik kapsamini belirle
    -> Etkilenen dosyalari tanimla
-   -> Tool secimi yap (kapsam + risk)
+   -> Riskli dosya var mi kontrol et
 
 3. UYGULAMA
-   -> Uygun tool ile degisikligi yap
-   -> Tum degisiklikleri tek yanitta tamamla
+   -> Mevcut dosyada single_find_and_replace kullan
+   -> Yeni dosyada create_new_file kullan
+   -> Tum kritik degisiklikleri tamamla
 
-4. DOGRULAMA (gerekirse)
-   -> Build/test calistirmayi oner
+4. DOGRULAMA
+   -> Gerekirse build veya test oner
    -> Hata varsa duzelt
 ```
 
 ### Yeni Dosya Akisi
 
-```
-1. create_file ile dosyayi olustur
-2. Ilgili dosyalarda guncelleme gerekiyorsa (import, reference)
-   -> O dosyalari da guncelle
-3. Build/test onerisi sun
+```text
+1. create_new_file ile dosyayi olustur
+2. Gerekirse ilgili import veya referanslari guncelle
+3. Build veya test adimini oner
 ```
 
 ---
 
 ## 3. MULTI-FILE KOORDINASYONU
 
-### Bagimlilik Sirasi
-
-```
+```text
 Birden fazla dosya degisecekse:
-
-1. BAGIMLILIK GRAFIGI
-   -> Hangi dosya hangisine bagli?
-   -> Import/include/reference iliskileri
-
-2. DEGISIKLIK SIRASI
-   -> En alt seviye (bagimliligi olmayan) once
-   -> Bagimli dosyalar sonra
-
-   Ornek (C#): Interface -> Implementation -> Registration
-   Ornek (C):  Header -> Source -> Makefile
-   Ornek (VHDL): Package -> Entity -> Testbench
-
-3. TUTARLILIK
-   -> Import/include guncel mi?
-   -> Interface/implementation eslesme kontrolu
-   -> Naming convention tutarli mi?
+1. Bagimlilik grafigi cikar
+2. Degisiklik sirasini belirle
+3. Tutarlilik kontrolunu planla
+4. Dosyalari sirayla guncelle
+5. Son durumda import, include, interface ve reference kontrolu yap
 ```
 
 ### Coklu Dosya Ornekleri
 
 | SENARYO | SIRA |
 |---------|------|
-| Yeni C# servis | IService.cs -> Service.cs -> DI registration |
-| Yeni VHDL modul | module.vhd -> (istenirse) module_tb.vhd -> top_level guncelle |
+| Yeni C# servis | Interface -> Implementation -> Registration |
+| Yeni VHDL modul | module.vhd -> istenirse module_tb.vhd -> top-level |
 | Yeni C header/source | module.h -> module.c -> Makefile |
 | Yeni Python modul | module.py -> __init__.py -> test_module.py |
 
@@ -114,84 +100,76 @@ Birden fazla dosya degisecekse:
 
 ## 4. ERROR RECOVERY
 
-### Tool Basarisizlik Senaryolari
-
 | HATA | RECOVERY |
 |------|----------|
-| Edit tool basarisiz | Degisikligi kucuk parcalara bol ve tekrar dene |
+| single_find_and_replace basarisiz | Degisikligi kucuk parcalara bol ve tekrar dene |
 | Dosya bulunamadi | Kullanicidan path dogrulama iste |
 | Timeout | Islemi kucuk parcalara bol |
 | Syntax hatasi | Hatali kismi duzelt ve tekrar dene |
 
 ### Recovery Protokolu
 
-```
+```text
 1. DURUMU KAYDET
-   -> Basarili adimlari hatirla
-   -> Neyin basarisiz oldugunu tani
+   -> Basarili adimlari ayir
+   -> Basarisiz adimi tani
 
 2. ALTERNATIF STRATEJI
-   -> Farkli tool dene
-   -> Islemi kucuk parcalara bol
-   -> Kullaniciya bilgi ver
+   -> Daha hedefli degisiklik uygula
+   -> Gerekirse ek okuma yap
+   -> Kullaniciyi yalnizca kritik yerde bilgilendir
 
 3. RAPORLA
    -> Ne basarili oldu
-   -> Ne basarisiz oldu
-   -> Onerilen sonraki adim
+   -> Ne kaldi
+   -> En guvenli sonraki adim ne
 ```
 
 ---
 
 ## 5. BUILD/TEST ENTEGRASYONU
 
-### Degisiklik Sonrasi
-
-```
+```text
 FPGA projeleri:
-  -> "Vivado'da sentez calistirmanizi oneririm"
-  -> Sentez uyarilari beklentisi (latch, timing)
+  -> Vivado sentez veya warning kontrolunu oner
 
 Embedded C projeleri:
-  -> "Vitis'te build calistirmanizi oneririm"
-  -> BSP regeneration gerekiyor mu?
+  -> Vitis build veya ilgili komutu oner
 
 C#/.NET projeleri:
-  -> "dotnet build calistirmanizi oneririm"
-  -> Unit test varsa: "dotnet test"
+  -> dotnet build
+  -> gerekiyorsa dotnet test
 
 Python projeleri:
-  -> "pytest calistirmanizi oneririm"
-  -> Linter: "python -m flake8" veya "python -m mypy"
+  -> pytest
+  -> gerekiyorsa linter veya type check
 ```
 
 ### Hata Ciktisi Analizi
 
-```
-Build/test hatasi raporlandiginda:
+```text
+Build veya test hatasi raporlandiginda:
 1. Hata mesajini oku
-2. Ilgili dosya ve satiri bulmak icin grep_search kullan
+2. Ilgili dosya ve satiri grep_search ile bul
 3. Kok neden analizi yap
-4. Fix uygula (uygun tool ile)
-5. Tekrar build/test oner
+4. Mevcut dosyada single_find_and_replace ile fix uygula
+5. Tekrar build veya test oner
 ```
 
 ---
 
 ## 6. CONTEXT-AWARE TOOL SECIMI
 
-### Dosya Tipi ve Tool Eslestirme
-
-KURAL: Dosya tipinden bagimsiz olarak degisiklik kapsamini baz al.
-Mevcut dosya degisikligi icin uygun edit tool'unu kullan, yeni dosya icin create_new_file.
+Kural: Dosya tipinden bagimsiz olarak degisiklik kapsamini baz al.  
+Mevcut dosya degisikligi icin single_find_and_replace kullan, yeni dosya icin create_new_file kullan.
 
 | DOSYA TIPI | ISLEM | NOT |
 |------------|-------|-----|
-| .vhd/.v (RTL) | Hedefli degisiklik | Sentez uyumluluk kontrolu |
-| .c/.h (Embedded) | Hedefli degisiklik | Header/source tutarliligi |
-| .cs (C#) | Hedefli degisiklik | Interface/impl eslesmesi |
-| .py (Python) | Hedefli degisiklik | Import tutarliligi |
-| .md (Docs) | Hedefli degisiklik | Yapi koruma |
-| .xdc (Constraint) | Genellikle tek satir | Kritik dosya - ONAY iste |
-| .csproj/.sln | Konfigurasyon | Kritik dosya - ONAY iste |
-| Makefile | Genellikle tek kural | Build sistemi degisikligi |
+| `.vhd`, `.v`, `.sv` | Hedefli degisiklik | Sentez uyumluluk kontrolu |
+| `.c`, `.h` | Hedefli degisiklik | Header/source tutarliligi |
+| `.cs` | Hedefli degisiklik | Interface ve registration etkisi |
+| `.py` | Hedefli degisiklik | Import ve packaging etkisi |
+| `.md` | Hedefli degisiklik | Yapi koruma |
+| `.xdc` | Genellikle tek satir | Kritik dosya, once onay |
+| `.csproj`, `.sln` | Konfigurasyon | Kritik dosya, once onay |
+| `Makefile` | Build sistemi | Etkiyi acikca dusun |

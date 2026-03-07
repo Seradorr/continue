@@ -2,7 +2,7 @@
 name: Advanced Reasoning Protocol
 description: |
   Gelismis dusunme, analiz, karar verme ve tool secim protokolleri.
-  GLM-5 ve Kimi-K2.5 icin loop onleme, kalite kontrol ve cikti dogrulama.
+  Tum aktif chat/edit modelleri icin kalite kontrol ve cikti dogrulama.
 alwaysApply: true
 ---
 
@@ -12,67 +12,59 @@ Bu kurallar daha kaliteli ve tutarli cikti icin uygulanir.
 
 ---
 
-## 1. ISTEK ANALIZI (Her Istekte)
+## 1. ISTEK ANALIZI
 
-Her kullanici isteginde once su analizi yap:
+Her istekte once sunlari belirle:
 
-```
+```text
 1. NE ISTENIYOR?
    - Kod mu, dokumantasyon mu, analiz mi?
    - Yeni olusturma mi, degisiklik mi?
    - Tek dosya mi, coklu dosya mi?
 
 2. NE ISTENMIYOR?
-   - Testbench/test istenmis mi? (hayirsa ekleme)
-   - Ornek istenmis mi? (hayirsa ekleme)
-   - Dokumantasyon istenmis mi? (hayirsa ekleme)
+   - Test, testbench, ornek, dokumantasyon eklenmesi istenmis mi?
 
 3. BELIRSIZLIK VAR MI?
    - Parametreler net mi?
-   - Hedef dosya/konum net mi?
-   - Teknoloji/versiyon net mi?
+   - Hedef dosya ve konum net mi?
+   - Teknoloji ve surum net mi?
 ```
 
 ---
 
 ## 2. KARAR AGACI
 
-### Tool Secimi
-
 Yeni dosya icin create_new_file kullan.
 
-```
+```text
 Degisiklik yapilacak mi?
 |- EVET -> Dosya var mi?
 |  |- EVET -> Dosyayi oku
-|  |  -> Uygun edit tool ile degisikligi uygula
-|  |  -> Birden fazla bagimsiz degisiklik: ayri cagrilar (gerekirse paralel)
-|  '- HAYIR -> create_new_file (yeni dosya)
-'- HAYIR -> Analiz/aciklama ver (tool gerekmiyor)
+|  |  -> single_find_and_replace ile degisikligi uygula
+|  |  -> Birden fazla bagimsiz degisiklik varsa ayri cagri yap
+|  '- HAYIR -> create_new_file
+'- HAYIR -> Analiz veya aciklama ver
 ```
 
-### Yeni Dosya mi Degisiklik mi?
+### Yeni Dosya mi, Degisiklik mi?
 
-```
-Istek icinde mevcut dosya referansi var mi?
-|- EVET -> Dosyayi OKU, uygun tool ile degistir
-'- HAYIR -> Yeni dosya OLUSTUR
-```
+```text
+Istek mevcut dosyaya referans veriyorsa:
+-> Dosyayi oku, sonra single_find_and_replace ile degistir
 
-### Testbench/Test Dahil mi?
-
-```
-Istekte "testbench", "tb", "test", "simulasyon" gecti mi?
-|- EVET -> AYRI DOSYA olarak olustur
-'- HAYIR -> EKLEME
+Istek yeni dosya istiyorsa:
+-> create_new_file kullan
 ```
 
-### Dokumantasyon mu Kod mu?
+### Testbench veya Test Dahil mi?
 
-```
-Hedef dosya .md, .rst, .txt mi?
-|- EVET -> KORUMA modunda calis, markdown code block ciktisi
-'- HAYIR -> Normal kod modunda calis
+```text
+Istekte "testbench", "tb", "test", "simulasyon" geciyorsa:
+-> AYRI DOSYA olarak olustur
+
+Gecmiyorsa:
+-> EKLEME
 ```
 
 ---
@@ -81,46 +73,35 @@ Hedef dosya .md, .rst, .txt mi?
 
 ### Kod Ciktisi
 
-- [ ] Dosya adi acikca belirtildi mi?
-- [ ] Kod TAMAM mi (bastan sona veya hedefli degisiklik)?
-- [ ] Kisaltma (`...`, `existing code`) var mi? -> YASAK
-- [ ] Syntax hatalari var mi? -> DUZELT
-- [ ] Istenmeyen icerik (tb, test, ornek) eklendi mi? -> CIKAR
-- [ ] Dogru tool secildi mi?
+- Dosya adi net mi
+- Kod tam mi
+- Placeholder var mi
+- Syntax veya format sorunu var mi
+- Istenmeyen ek icerik var mi
+- Mevcut dosyada single_find_and_replace kullanildi mi
 
 ### Dokumantasyon Ciktisi
 
-- [ ] Mevcut icerik korundu mu?
-- [ ] Yapi (baslik, liste) bozuldu mu? -> DUZELT
-- [ ] Eski girisler silindi mi? -> GERI EKLE
+- Mevcut icerik korundu mu
+- Baslik ve liste yapisi bozuldu mu
+- Eski girisler kazara silindi mi
 
 ### Degisiklik Ciktisi
 
-- [ ] Uygun tool kullanildi mi?
-- [ ] Degismeyen kisimlar korundu mu?
-- [ ] Bosluklar/girintiler bozuldu mu? -> DUZELT
+- Degismeyen kisimlar korundu mu
+- Girinti ve bosluklar bozuldu mu
+- Etkilenen import, interface, reference zinciri dusunuldu mu
 
 ---
 
 ## 4. KALITE STANDARTLARI
 
-### Kod Kalitesi
-
 | OLCUM | BEKLENTI |
-|-------|----------|
-| Syntax | Hatasiz, derlenebilir/calisabilir |
-| Isimlendirme | Tutarli, anlasilir |
-| Yapilandirma | Modular, okunabilir |
-| Yorumlar | Sadece istenirse |
-
-### Cikti Kalitesi
-
-| OLCUM | BEKLENTI |
-|-------|----------|
-| Tamlik | Istenen degisiklik tamamen uygulanmis |
-| Dogruluk | Davranis beklentiye uygun |
-| Koruma | Degismeyen kisimlar aynen |
-| Format | Girinti, bosluk korunmus |
+|------|----------|
+| Tamlik | Istenen degisiklik tamamen uygulanmis olmali |
+| Dogruluk | Davranis beklentiye uygun olmali |
+| Koruma | Degismeyen kisimlar aynen kalmali |
+| Okunabilirlik | Sonuc net, bakimi kolay ve tutarli olmali |
 
 ---
 
@@ -128,12 +109,11 @@ Hedef dosya .md, .rst, .txt mi?
 
 | HATA | ONLEME |
 |------|--------|
-| Kismi cikti | Tool secimini kapsama gore yap |
-| Testbench ekleme | Acikca istenmemisse EKLEME |
-| Icerik silme | Dokumantasyonda KORUMA modu |
-| Varsayim | Belirsizlikte SORU SOR |
-| Iteratif islem | Tek seferde TAMAMLA |
-| Yanlis tool | Dogru tool'u kapsama gore sec |
+| Kismi cikti | Tek seferde tamamlanmis cevap ver |
+| Testbench ekleme | Acikca istenmedikce ekleme |
+| Icerik silme | Dokumantasyonda koruma modunda calis |
+| Varsayim | Belirsizlikte soru sor |
+| Yanlis tool | Mevcut dosyada single_find_and_replace kullan |
 
 ---
 
@@ -141,67 +121,64 @@ Hedef dosya .md, .rst, .txt mi?
 
 ### Bos Dosya
 
--> Yeni dosya olarak olustur, uygun template/iskelet kullan
+-> Yeni dosya olarak olustur, uygun iskelet kullan
 
 ### Cok Buyuk Dosya (1000+ satir)
 
--> once grep_search ile hedef bolgeleri daralt
--> uygun edit tool ile hedefli degisiklik uygula
+-> Once grep_search ile hedef bolgeleri daralt  
+-> Sonra single_find_and_replace ile hedefli degisiklik yap
 
 ### Cok Buyuk Dosya (5000+ satir)
 
--> context'i bolgesel topla, gereksiz satir yukleme
--> degisiklik buyukse once net plan cikar
--> cok genis degisikliklerde dosyayi mantikli parcalara ayirarak uygula
+-> Context'i bolgesel topla  
+-> Degisiklik buyukse once net plan cikar  
+-> Tutarliligi bozmadan parcali ama hedefli degisiklik uygula
 
 ### Cakisan Istekler
 
--> Varsayim YAPMA, celiskiyi belirt ve soru sor
-
-### Belirsiz Konum
-
--> Muhtemel konumlari listele, kullaniciya sor
+-> Varsayim yapma, celiskiyi belirt ve soru sor
 
 ---
 
 ## 7. MULTI-FILE OPERASYONLAR
 
-```
+```text
 Birden fazla dosya degisecekse:
-1. Bagimlilik grafigi cikar (hangi dosya hangisine bagli)
-2. Degisiklik sirasini belirle (en alt seviyeden baslat)
-3. Her dosya icin uygun tool sec
+1. Bagimlilik grafigi cikar
+2. Degisiklik sirasini belirle
+3. Her dosya icin dogru tool sec
 4. Degisiklikleri sirayla uygula
-5. Tutarlilik kontrolu (import, reference, interface)
+5. Tutarlilik kontrolu yap
 ```
 
 ---
 
-## 8. BUILD/TEST SONRASI VALIDASYON
+## 8. PROAKTIF INCELEME
 
-```
+- Istenen isi once tamamla
+- Sonra varsa en fazla 3 kanita dayali risk, anti-pattern veya refactor onerisi sun
+- Oneriler etkilenen dosya, davranis veya mimari baglam ile iliskili olsun
+- Oneri yoksa zorla madde ekleme
+
+---
+
+## 9. BUILD/TEST SONRASI VALIDASYON
+
+```text
 Degisiklik sonrasi:
-|- FPGA -> Sentez calistirmayi oner, uyari kontrolu
-|- Embedded C -> Build calistirmayi oner, linker hatasi kontrolu
-|- C#/.NET -> dotnet build/test calistirmayi oner
-|- Python -> pytest calistirmayi oner
-'- Genel -> Uygun build/test komutunu oner
+|- FPGA       -> Sentez veya warning kontrolunu oner
+|- Embedded C -> Build ve linker kontrolunu oner
+|- C#/.NET    -> dotnet build veya dotnet test oner
+|- Python     -> pytest veya ilgili komutu oner
+'- Genel      -> Uygun build veya test adimini oner
 ```
 
 ---
 
-## 9. DERINLIK VE VERIM DENGESI
+## 10. DERINLIK VE VERIM DENGESI
 
-### Context Verimli Kullanimi
-
-- Gereksiz dosya okuma YAPMA
-- Ilgili dosyalari ONCE tani
-- Buyuk dosyalarda stratejik okuma (grep_search ile hedef bul)
-- Ancak kritik kararlar icin gerekli bolgeleri eksik birakma
-
-### Cikti Kalitesi
-
-- Gereksiz dolgu aciklama EKLEME
-- Onemli bilgiyi ONE CIKAR
-- Kod ve aciklamayi AYIR
+- Gereksiz dosya okuma yapma
+- Ilgili dosyalari once belirle
+- Onemli kararlar icin gerekli bolgeleri eksik birakma
+- Gereksiz dolgu aciklama ekleme
 - Derin refactor taleplerinde neden-sonuc bagini net kur

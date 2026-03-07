@@ -179,52 +179,37 @@ public static class GridHelper
 
 ## 4. EF CORE PATTERN'LERI
 
-### Repository Pattern
+### DbContext ve Repository Karari
+
+Not:
+- EF Core'da `DbContext` zaten Unit of Work ve Repository davranisi saglar
+- Generic repository varsayilan tercih olmamali
+- Ek soyutlama ancak domain'e ozel sorgu, test siniri veya provider ayrimi gerekiyorsa eklenmeli
 
 ```csharp
-public interface IRepository<T> where T : class
+public interface IOrderReadRepository
 {
-    Task<T?> GetByIdAsync(int id, CancellationToken ct = default);
-    Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default);
-    Task AddAsync(T entity, CancellationToken ct = default);
-    Task UpdateAsync(T entity, CancellationToken ct = default);
-    Task DeleteAsync(T entity, CancellationToken ct = default);
+    Task<Order?> GetByIdAsync(int id, CancellationToken ct = default);
+    Task<IReadOnlyList<OrderSummaryDto>> ListOpenOrdersAsync(CancellationToken ct = default);
 }
 
-public class Repository<T> : IRepository<T> where T : class
+public sealed class OrderReadRepository : IOrderReadRepository
 {
-    private readonly DbContext _context;
-    private readonly DbSet<T> _dbSet;
+    private readonly AppDbContext _db;
 
-    public Repository(DbContext context)
+    public OrderReadRepository(AppDbContext db)
     {
-        _context = context;
-        _dbSet = context.Set<T>();
+        _db = db;
     }
 
-    public async Task<T?> GetByIdAsync(int id, CancellationToken ct = default)
-        => await _dbSet.FindAsync(new object[] { id }, ct);
+    public Task<Order?> GetByIdAsync(int id, CancellationToken ct = default)
+        => _db.Orders.FirstOrDefaultAsync(x => x.Id == id, ct);
 
-    public async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default)
-        => await _dbSet.ToListAsync(ct);
-
-    public async Task AddAsync(T entity, CancellationToken ct = default)
-    {
-        await _dbSet.AddAsync(entity, ct);
-        await _context.SaveChangesAsync(ct);
-    }
-
-    public async Task UpdateAsync(T entity, CancellationToken ct = default)
-    {
-        _dbSet.Update(entity);
-        await _context.SaveChangesAsync(ct);
-    }
-
-    public async Task DeleteAsync(T entity, CancellationToken ct = default)
-    {
-        _dbSet.Remove(entity);
-        await _context.SaveChangesAsync(ct);
-    }
+    public Task<IReadOnlyList<OrderSummaryDto>> ListOpenOrdersAsync(CancellationToken ct = default)
+        => _db.Orders
+            .Where(x => x.Status == OrderStatus.Open)
+            .Select(x => new OrderSummaryDto(x.Id, x.CustomerName, x.Total))
+            .ToListAsync(ct);
 }
 ```
 
@@ -233,8 +218,6 @@ public class Repository<T> : IRepository<T> where T : class
 ```csharp
 public interface IUnitOfWork : IDisposable
 {
-    IRepository<Order> Orders { get; }
-    IRepository<Product> Products { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
 ```
