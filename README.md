@@ -1,9 +1,9 @@
 # Continue AI Configuration - Production-Ready Local LLM Setup
 
 **Version**: 7.2.0  
-**Last Updated**: 2026-03-07
+**Last Updated**: 2026-03-26
 
-Bu repo, Continue IDE eklentisini lokal ve profesyonel bir yazilim gelistirme asistani olarak kullanmak icin hazirlanmistir. GLM-5 ve Kimi-K2.5 uzman model aileleri birlikte tanimlidir. Quick-Engineer icin Qwen3-Next kullanilir. Rerank ve embedding modelleri mevcut ortam yapisina uygun sekilde korunur.
+Bu repo, Continue IDE eklentisini lokal ve profesyonel bir yazilim gelistirme asistani olarak kullanmak icin hazirlanmistir. Cekirdek calisma modeli mimarisi `Hard-Engineer`, `Soft-Engineer`, `Vision-Engineer` ve `GLM-Hard-Engineer` etrafinda sade tutulur. Uzmanlik ise agirlikli olarak rule katmaninda tanimlanir.
 
 Konfigurasyonun amaci, model secimini kullaniciya birakan; davranis, uzmanlik, tool disiplini ve kalite barini ise config + rule katmaninda standartlastiran kalici bir yapi sunmaktir.
 
@@ -27,30 +27,22 @@ Bu proje su hedeflere odaklanir:
 
 | # | Model Adi | Backend Model | Rol | Kullanim |
 |---|-----------|---------------|-----|----------|
-| 1 | FPGA-RTL-Engineer | GLM-5-FP8 | chat, edit | FPGA, RTL, Vivado |
-| 2 | Embedded-C-Cpp-Vitis | GLM-5-FP8 | chat, edit | Vitis, bare-metal C/C++ |
-| 3 | CSharp-DotNet-Engineer | GLM-5-FP8 | chat, edit | C#, .NET, WPF |
-| 4 | Python-Engineer | GLM-5-FP8 | chat, edit | Python, scripting, pytest |
-| 5 | K2-FPGA-Engineer | Kimi-K2.5 | chat, edit | FPGA, RTL, Vivado |
-| 6 | K2-Embedded | Kimi-K2.5 | chat, edit | Vitis, bare-metal C/C++ |
-| 7 | K2-CSharp | Kimi-K2.5 | chat, edit | C#, .NET, WPF |
-| 8 | K2-Python | Kimi-K2.5 | chat, edit | Python, scripting, pytest |
-| 9 | K2-Docs | Kimi-K2.5 | chat, edit | Markdown, README, CHANGELOG |
-| 10 | Schematic-Engineer | Kimi-K2.5 | chat, edit | Gorsel ve sematik analiz |
-| 11 | Git-Expert | Kimi-K2.5 | chat, edit | Git ve repo yonetimi |
-| 12 | Quick-Engineer | Qwen3-Next-80B-A3B-Instruct | chat, edit | Hizli temel isler |
-| 13 | Rerank-Model | Qwen3-Coder-480B-A35B-Instruct | rerank | Arama sonucu siralama |
-| 14 | Embedding-Model | Qwen3-Embedding-8B | embed | Vektorlestirme |
+| 1 | Hard-Engineer | Qwen3.5-397B-A17B-FP8 | chat, edit | Derin analiz, kritik degisiklik, production odakli isler |
+| 2 | Soft-Engineer | Qwen3.5-35B-A3B | chat, edit | Hizli bug fix, kisa refactor, hafif analiz |
+| 3 | Vision-Engineer | Kimi-K2.5 | chat, edit | Gorsel yorum, sematik, tablo, uzun context |
+| 4 | GLM-Hard-Engineer | GLM-4.7-FP8 | chat, edit | GLM tabanli hard-engine davranisi |
+| 5 | Rerank-Model | bge-reranker-v2-m3 | rerank | Arama sonucu siralama |
+| 6 | Embedding-Model | Qwen3-Embedding-8B | embed | Vektorlestirme |
 
 ---
 
 ## Tasarim Ilkeleri
 
-### 1. Cift Uzman Model Ailesi
+### 1. Cekirdek Motor + Rule Katmani
 
-- GLM-5 ve Kimi-K2.5 ayni alanlar icin ayri uzman aileler olarak tanimlidir
-- Her iki ailede de benzer kalite bari, tool disiplini ve uzman prompt seviyesi korunur
-- Model secimi Continue tarafinda kullanicinin operasyonel tercihidir
+- Model sayisi bilincli olarak az tutulur; cekirdek davranis motorlari ayridir
+- Domain uzmanligi agirlikli olarak `.continue/rules/` katmaninda tanimlanir
+- Kullanici gerekirse ilgili rule dosyalarini manuel olarak da ekleyebilir
 
 ### 2. Tool Disiplini
 
@@ -75,47 +67,33 @@ Bu proje su hedeflere odaklanir:
 
 ## Uzmanlik Alanlari
 
-### FPGA-RTL-Engineer / K2-FPGA-Engineer
+### FPGA / RTL
 
-- VHDL, Verilog, SystemVerilog
-- FSM, CDC, timing closure, AXI, XDC
-- Vivado warning, log ve constraint yorumlama
+- `02-fpga.md` ile VHDL, Verilog, SystemVerilog, FSM, CDC, timing, AXI ve XDC kurallari uygulanir
 
-### Embedded-C-Cpp-Vitis / K2-Embedded
+### Embedded / Vitis
 
-- Xilinx driver API
-- Interrupt, ISR, DMA, cache islemleri
-- BSP, linker script, PS-PL haberlesme
+- `03-vitis.md` ile Xilinx driver API, interrupt, ISR, DMA, cache, BSP ve linker disiplini uygulanir
 
-### CSharp-DotNet-Engineer / K2-CSharp
+### C# / .NET
 
-- Modern C#, nullable, async/await
-- WPF MVVM
-- DI, EF Core, maintainability ve performans
+- `04-csharp.md` ile modern C#, async/await, WPF MVVM, DI ve EF Core odagi uygulanir
 
-### Python-Engineer / K2-Python
+### Python
 
-- Type hints, pathlib, asyncio
-- pytest, CLI, packaging
-- Pydantic v2 odakli modelleme
+- `05-python.md` ile type hints, pathlib, asyncio, pytest, packaging ve Pydantic v2 odagi uygulanir
 
-### K2-Docs
+### Dokumantasyon
 
-- README, CHANGELOG, API ve teknik dokumanlar
-- Icerik koruma
-- Format bozmadan hedefli guncelleme
+- `06-documentation.md` ile README, CHANGELOG, API ve teknik dokumanlarda icerik koruma ve hedefli guncelleme uygulanir
 
-### Schematic-Engineer
+### Git
 
-- Sematik okuma
-- Blok diyagram ve sinyal akisi
-- Pin mapping ve tablo yorumlama
+- `10-git.md` ile durum analizi, commit hijyeni, branch guvenligi, conflict ve veri kaybi riski odagi manuel olarak eklenebilir
 
-### Git-Expert
+### Gorsel ve Uzun Context
 
-- Durum analizi
-- Guvenli branch ve merge akisi
-- Conflict ve veri kaybi risklerinin yonetimi
+- `Vision-Engineer` sematik, blok diyagram, tablo, pin mapping ve uzun baglam gerektiren islerde kullanilir
 
 ---
 
@@ -132,7 +110,8 @@ Bu proje su hedeflere odaklanir:
 |- 06-documentation.md       -> Dokumantasyon kurallari
 |- 07-reasoning.md           -> Gelismis akil yurutme
 |- 08-agent-workflow.md      -> Agent tool workflow
-'- 09-production-quality.md  -> Mimari, guvenlik ve verification kalitesi
+|- 09-production-quality.md  -> Mimari, guvenlik ve verification kalitesi
+'- 10-git.md                 -> Git durum, commit ve branch guvenligi
 ```
 
 `alwaysApply` katmaninda ozellikle sunlar zorunlu hale getirilir:
@@ -168,10 +147,10 @@ Bu proje su hedeflere odaklanir:
 
 ## vLLM Referans Sunucu Ayarlari
 
-### GLM-5
+### GLM-4.7
 
 ```bash
-vllm serve GLM-5-FP8 \
+vllm serve GLM-4.7-FP8 \
   --tool-call-parser glm47 \
   --reasoning-parser glm45 \
   --enable-auto-tool-choice
@@ -186,23 +165,22 @@ vllm serve Kimi-K2.5 \
   --enable-auto-tool-choice
 ```
 
-### Quick-Engineer
+### Qwen Ailesi
 
 ```text
-Qwen3-Next-80B-A3B-Instruct
+Qwen3.5-397B-A17B-FP8
+Qwen3.5-35B-A3B
 ```
 
-Quick-Engineer sunum amaci:
-- kucuk bug fix
-- syntax duzeltme
-- kisa refactor
-- ufak config degisiklikleri
+Kullanim ayrimi:
+- `Hard-Engineer` -> kalite odakli, daha derin muhakeme
+- `Soft-Engineer` -> hizli ve hedefli degisiklik
 
 ---
 
 ## Sampling ve Context Ayarlari
 
-### GLM-5
+### GLM-4.7
 
 | Parametre | Deger |
 |-----------|-------|
@@ -213,7 +191,9 @@ Quick-Engineer sunum amaci:
 | `repetition_penalty` | 1.1 |
 | `maxTokens` | 32768 |
 | `contextLength` | 131072 |
-| `truncate_prompt_tokens` | 90000 |
+| `reasoning` | true |
+| `reasoningBudgetTokens` | 8192 |
+| `truncate_prompt_tokens` | 98000 |
 
 ### Kimi-K2.5
 
@@ -223,17 +203,29 @@ Quick-Engineer sunum amaci:
 | `top_p` | 0.95 |
 | `maxTokens` | 32768 |
 | `contextLength` | 131072 |
-| `truncate_prompt_tokens` | 90000 |
+| `truncate_prompt_tokens` | 98000 |
 
-### Quick-Engineer
+### Hard-Engineer
 
 | Parametre | Deger |
 |-----------|-------|
-| `temperature` | 0.5 |
+| `temperature` | 0.7 |
 | `top_p` | 0.95 |
 | `maxTokens` | 32768 |
-| `contextLength` | 262144 |
-| `truncate_prompt_tokens` | 220000 |
+| `contextLength` | 131072 |
+| `reasoning` | true |
+| `reasoningBudgetTokens` | 8192 |
+| `truncate_prompt_tokens` | 98000 |
+
+### Soft-Engineer
+
+| Parametre | Deger |
+|-----------|-------|
+| `temperature` | 0.0 |
+| `top_p` | 0.95 |
+| `maxTokens` | 32768 |
+| `contextLength` | 131072 |
+| `truncate_prompt_tokens` | 98000 |
 
 ### Neden Daha Genis Headroom Birakildi
 
@@ -282,11 +274,11 @@ Pratik yaklasim:
 - Tool cagrilarini hedefli ve tekil tut
 - Buyuk yeniden yazmalar yerine hedefli degisiklik akisini koru
 
-### GLM-5
+### GLM-4.7
 
-- GLM uzman modelleri tam uzman aile olarak tanimlidir
+- `GLM-Hard-Engineer`, hard-engine davranisini GLM tarafinda korur
 - Tool parser ve reasoning parser ayarlari referans olarak belgelenmistir
-- Prompt ve agent kalitesi Kimi ailesi ile uyumlu tutulmustur
+- Sampling tarafinda `frequency_penalty: 0.2` ve `presence_penalty: 0.1` korunur
 
 ---
 
@@ -306,7 +298,8 @@ Pratik yaklasim:
 |     |- 06-documentation.md
 |     |- 07-reasoning.md
 |     |- 08-agent-workflow.md
-|     '- 09-production-quality.md
+|     |- 09-production-quality.md
+|     '- 10-git.md
 '- README.md
 ```
 

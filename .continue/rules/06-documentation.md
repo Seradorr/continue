@@ -3,7 +3,7 @@ name: Documentation Rules
 description: |
   Markdown, README ve teknik dokumantasyon dosyalari icin
   koruma, guncelleme ve format kurallari.
-  Dokumantasyon uzman modeli bu dosyalari agent modunda duzenler.
+  Aktif model bu dosyalari ilgili dokumantasyon kurallariyla duzenler.
 globs:
   - "**/*.md"
   - "**/README*"
@@ -17,7 +17,7 @@ alwaysApply: false
 # DOKUMANTASYON KURALLARI
 
 Bu kurallar tum dokumantasyon dosyalari icin gecerlidir.
-Dokumantasyon uzman modeli agent modunda calisir ve dosyalari dogrudan duzenleyebilir.
+Aktif model agent modunda bu kurallarla calisir ve dosyalari dogrudan duzenleyebilir.
 
 ---
 
