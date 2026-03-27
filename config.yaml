@@ -1,7 +1,7 @@
 %YAML 1.1
 ---
 name: Custom-AI-Assistant
-version: 7.2.0
+version: 7.3.0
 schema: v1
 
 # ============================================================================
@@ -45,8 +45,8 @@ glm_extra: &glm_extra
 # ============================================================================
 # KIMI-K2.5 PARAMETERS
 # ============================================================================
-# Kimi-K2.5 uzman modelleri GLM muadilleri ile birlikte tanimlidir.
-# Bu profil Kimi-K2.5 ailesindeki uzman chat/edit modelleri icin kullanilir.
+# Kimi-K2.5 hard ve vision modelleri ayni aile icinde tanimlidir.
+# Bu profil Kimi-K2.5 ailesindeki chat/edit modelleri icin kullanilir.
 #
 # THINKING MODE:
 # - Varsayilan olarak ACIK tutulur.
@@ -74,41 +74,40 @@ kimi_extra: &kimi_extra
   truncate_prompt_tokens: 98000
 
 # ============================================================================
-# QWEN3.5-397B-A17B-FP8 PARAMETERS (Domain Expert)
+# QWEN3.5-397B-A17B-FP8 PARAMETERS (Hard Engineer)
 # ============================================================================
-# Qwen3.5-397B-A17B-FP8 uzman modelleri FPGA, Embedded, C#, Python alanlari
-# icin Kimi-K2.5 ve GLM-4.7-FP8 ile birlikte kullanilir.
+# Qwen3.5-397B-A17B-FP8 kalite odakli hard-engine rolunde kullanilir.
 #
-# MODEL SPECS: 32K max tokens, 128K context, truncation at 98K
+# MODEL SPECS: 64K max tokens, 256K context, truncation at 196K
 # ============================================================================
 
 qwen_expert_params: &qwen_expert_params
   temperature: 0.7
-  maxTokens: 32768
-  contextLength: 131072
+  maxTokens: 65536
+  contextLength: 262144
   reasoning: true
   reasoningBudgetTokens: 8192
 
 qwen_expert_extra: &qwen_expert_extra
   top_p: 0.95
-  # Headroom: rules, tool schema ve reasoning cikisi icin guvenli bosluk (128K - 32K = 96K, ~98K kullan)
-  truncate_prompt_tokens: 98000
+  # Headroom: rules, tool schema ve reasoning cikisi icin guvenli bosluk (262144 - 65536 = 196608, ~196K kullan)
+  truncate_prompt_tokens: 196000
 
 # ============================================================================
-# QUICK MODEL PARAMETERS (Qwen3.5-35B-A3B - Fast Engineer)
+# QUICK MODEL PARAMETERS (Qwen3.5-35B-A3B-FP8 - Fast Engineer)
 # ============================================================================
-# MODEL SPECS: 32K max tokens, 128K context, truncation at 98K
+# MODEL SPECS: 64K max tokens, 256K context, truncation at 196K
 # ============================================================================
 
 quick_params: &quick_params
   temperature: 0.00
-  maxTokens: 32768
-  contextLength: 131072
+  maxTokens: 65536
+  contextLength: 262144
 
 quick_extra: &quick_extra
   top_p: 0.95
-  # Headroom: tool schema ve hizli yanit icin guvenli bosluk (128K - 32K = 96K, ~98K kullan)
-  truncate_prompt_tokens: 98000
+  # Headroom: tool schema ve hizli yanit icin guvenli bosluk (262144 - 65536 = 196608, ~196K kullan)
+  truncate_prompt_tokens: 196000
 
 # ============================================================================
 # RERANK PARAMETERS
@@ -170,11 +169,11 @@ models:
         - Istenen is bittikten sonra, varsa en fazla 3 kanita dayali iyilestirme onerisi sun
 
   # --------------------------------------------------------------------------
-  # 2. Soft-Engineer (Qwen3.5-35B-A3B)
+  # 2. Soft-Engineer (Qwen3.5-35B-A3B-FP8)
   # --------------------------------------------------------------------------
   - name: Soft-Engineer
     <<: *api_config
-    model: Qwen3.5-35B-A3B
+    model: Qwen3.5-35B-A3B-FP8
     capabilities: [tool_use]
     roles: [chat, edit]
     defaultCompletionOptions:
@@ -259,7 +258,51 @@ models:
         - Istenen is bittikten sonra, varsa en fazla 3 kanita dayali iyilestirme onerisi sun
 
   # --------------------------------------------------------------------------
-  # 4. GLM-Hard-Engineer (GLM-4.7-FP8)
+  # 4. Kimi-Hard-Engineer (Kimi-K2.5)
+  # --------------------------------------------------------------------------
+  - name: Kimi-Hard-Engineer
+    <<: *api_config
+    model: Kimi-K2.5
+    capabilities: [tool_use]
+    roles: [chat, edit]
+    defaultCompletionOptions:
+      <<: *kimi_params
+    requestOptions:
+      extraBodyProperties:
+        <<: *kimi_extra
+    chatOptions:
+      baseSystemMessage: |
+        Kalite odakli genel yazilim muhendisi.
+
+        ROL:
+        - Kritik degisiklik, planli refactor, derin analiz, kapsamli fix ve production odakli isler
+        - Domain uzmanligi alwaysApply kurallari, glob rules ve kullanici tarafindan manuel eklenen ilgili rules ile belirlenir
+
+        YAKLASIM:
+        - Once etkiyi ve riski anla, sonra degisikligi uygula
+        - Kod, config, test, build ve operasyonel etkileri dusun
+        - Istenen isi tamamladiktan sonra, varsa en fazla 3 kanita dayali risk veya iyilestirme onerisi sun
+        - Turkce aciklama, Ingilizce teknik terimler
+      baseAgentSystemMessage: |
+        Hard Engineer - Agent modu.
+
+        TOOL KURALLARI:
+        - Mevcut dosya degisikligi icin single_find_and_replace kullan
+        - Genel edit toolu kullanma
+        - Yeni dosya gerekiyorsa create_new_file kullan
+
+        KARAR AKISI:
+        - Once ilgili context, dosya, diff, hata veya log kanitini topla
+        - Domain kararlarini aktif rules'a gore ver
+        - Degisiklikleri hedefli uygula ve yan etkileri kontrol et
+        - Yikici veya kritik operasyon varsa once onay iste
+
+        KALITE BARI:
+        - Etkilenen callers, config, testler, build ve deployment risklerini dusun
+        - Istenen is bittikten sonra, varsa en fazla 3 kanita dayali iyilestirme onerisi sun
+
+  # --------------------------------------------------------------------------
+  # 5. GLM-Hard-Engineer (GLM-4.7-FP8)
   # --------------------------------------------------------------------------
   - name: GLM-Hard-Engineer
     <<: *api_config
@@ -303,7 +346,7 @@ models:
         - Istenen is bittikten sonra, varsa en fazla 3 kanita dayali iyilestirme onerisi sun
 
   # --------------------------------------------------------------------------
-  # 5. Rerank-Model
+  # 6. Rerank-Model
   # --------------------------------------------------------------------------
   - name: Rerank-Model
     <<: *api_config
@@ -313,7 +356,7 @@ models:
       <<: *rerank_params
 
   # --------------------------------------------------------------------------
-  # 6. Embedding-Model
+  # 7. Embedding-Model
   # --------------------------------------------------------------------------
   - name: Embedding-Model
     <<: *api_config
